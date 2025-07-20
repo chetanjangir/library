@@ -11,22 +11,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^3.0.2",
-    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.294.0",
-    "mongodb": "^6.3.0",
-    "mongoose": "^8.0.3",
-    "mongodb": "^6.17.0",
-    "mongoose": "^8.16.4",
+    "mongoose": "^7.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.6.2"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "^9.0.5",
     "@vercel/node": "^3.0.21",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",

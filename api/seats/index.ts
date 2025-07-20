@@ -17,25 +17,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     switch (req.method) {
       case 'GET':
-        // Initialize 100 vacant seats if they don't exist
-        const seatCount = await Seat.countDocuments();
-        if (seatCount === 0) {
-          const seats = [];
-          for (let i = 1; i <= 100; i++) {
-            seats.push({ 
-              seatNumber: i,
-              isOccupied: false,
-              type: 'vacant'
-            });
+        try {
+          // Initialize 100 vacant seats if they don't exist
+          const seatCount = await Seat.countDocuments().exec();
+          if (seatCount === 0) {
+            const seats = [];
+            for (let i = 1; i <= 100; i++) {
+              seats.push({ 
+                seatNumber: i,
+                isOccupied: false,
+                type: 'vacant'
+              });
+            }
+            await Seat.insertMany(seats);
           }
-          await Seat.insertMany(seats);
-        }
 
-        const seats = await Seat.find()
-          .populate('fullDayStudent morningStudent eveningStudent')
-          .sort({ seatNumber: 1 });
-        
-        return res.status(200).json(seats);
+          const seats = await Seat.find({})
+            .populate('fullDayStudent morningStudent eveningStudent')
+            .sort({ seatNumber: 1 })
+            .exec();
+          
+          return res.status(200).json(seats);
+        } catch (error) {
+          console.error('Error fetching seats:', error);
+          return res.status(500).json({ error: 'Failed to fetch seats' });
+        }
 
       default:
         res.setHeader('Allow', ['GET']);
