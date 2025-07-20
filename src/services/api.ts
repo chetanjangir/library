@@ -1,5 +1,5 @@
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://library-ecru-ten.vercel.app/api' 
+  ? 'https://your-app-name.vercel.app/api' 
   : '/api';
 
 class ApiService {

@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     switch (req.method) {
       case 'GET':
-        const payments = await Payment.find({})
+        const payments = await Payment.find()
           .populate('studentId', 'name')
           .sort({ dueDate: -1 });
         return res.status(200).json(payments);

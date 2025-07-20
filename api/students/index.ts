@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     switch (req.method) {
       case 'GET':
-        const students = await Student.find({}).sort({ createdAt: -1 });
+        const students = await Student.find().sort({ createdAt: -1 });
         return res.status(200).json(students);
 
       case 'POST':
@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Update seat allocation
         if (studentData.seatNumber) {
-          await updateSeatAllocation(studentData.seatNumber, student._id, studentData.dayType, studentData.halfDaySlot);
+          await updateSeatAllocation(studentData.seatNumber, student._id.toString(), studentData.dayType, studentData.halfDaySlot);
         }
 
         // Send WhatsApp message
@@ -78,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         // Free up the seat
         if (deletedStudent.seatNumber) {
-          await freeSeat(deletedStudent.seatNumber, deletedStudent._id, deletedStudent.dayType);
+          await freeSeat(deletedStudent.seatNumber, deletedStudent._id.toString(), deletedStudent.dayType);
         }
         
         return res.status(200).json({ message: 'Student deleted successfully' });

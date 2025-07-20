@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await Seat.insertMany(seats);
         }
 
-        const seats = await Seat.find({})
+        const seats = await Seat.find()
           .populate('fullDayStudent morningStudent eveningStudent')
           .sort({ seatNumber: 1 });
         
