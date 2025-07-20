@@ -1,6 +1,4 @@
-const API_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-  ? '/api' 
-  : '/api';
+const API_URL = '/api';
 
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {

@@ -21,21 +21,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Mobile number and message are required' });
     }
 
-    // WhatsApp Business API configuration
+    console.log('WhatsApp message request:', { mobile, message, type });
+
+    // Generate curl command for reference
     const whatsappApiUrl = process.env.WHATSAPP_API_URL || 'https://graph.facebook.com/v17.0/YOUR_PHONE_NUMBER_ID/messages';
     const whatsappToken = process.env.WHATSAPP_TOKEN || 'your_permanent_token_here';
 
-    // Prepare the message payload
     const payload = {
       messaging_product: "whatsapp",
-      to: mobile.replace(/[^0-9]/g, ''), // Clean phone number
+      to: mobile.replace(/[^0-9]/g, ''),
       type: "text",
       text: {
         body: message
       }
     };
 
-    // Generate curl command for reference
     const curlCommand = `curl -X POST "${whatsappApiUrl}" \\
   -H "Authorization: Bearer ${whatsappToken}" \\
   -H "Content-Type: application/json" \\
@@ -44,25 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('WhatsApp API Curl Command:');
     console.log(curlCommand);
 
-    // For production, uncomment this to actually send the message
-    /*
-    const response = await fetch(whatsappApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(`WhatsApp API error: ${result.error?.message || 'Unknown error'}`);
-    }
-    */
-
-    // For now, simulate success
+    // Simulate success
     const result = {
       success: true,
       message_id: `sim_${Date.now()}`,

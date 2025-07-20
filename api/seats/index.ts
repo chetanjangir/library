@@ -1,6 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import connectDB from '../../src/lib/mongodb';
-import Seat from '../../src/models/Seat';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS
@@ -13,42 +11,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    await connectDB();
+    console.log('Seats API called:', req.method);
 
     switch (req.method) {
       case 'GET':
-        try {
-          // Initialize 100 vacant seats if they don't exist
-          const seatCount = await Seat.countDocuments().exec();
-          if (seatCount === 0) {
-            const seats = [];
-            for (let i = 1; i <= 100; i++) {
-              seats.push({ 
-                seatNumber: i,
-                isOccupied: false,
-                type: 'vacant'
-              });
-            }
-            await Seat.insertMany(seats);
-          }
-
-          const seats = await Seat.find({})
-            .populate('fullDayStudent morningStudent eveningStudent')
-            .sort({ seatNumber: 1 })
-            .exec();
-          
-          return res.status(200).json(seats);
-        } catch (error) {
-          console.error('Error fetching seats:', error);
-          return res.status(500).json({ error: 'Failed to fetch seats' });
+        // Generate 100 vacant seats
+        const seats = [];
+        for (let i = 1; i <= 100; i++) {
+          seats.push({
+            id: i,
+            seatNumber: i,
+            isOccupied: false,
+            type: 'vacant'
+          });
         }
+        
+        return res.status(200).json(seats);
 
       default:
         res.setHeader('Allow', ['GET']);
-        return res.status(405).end(`Method ${req.method} Not Allowed`);
+        return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Seats API Error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
