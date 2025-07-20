@@ -1,4 +1,4 @@
-# Library Student Management System - Vercel + MongoDB
+# Library Student Management System
 
 A comprehensive library management system for tracking students, payments, and seat allocations.
 
@@ -11,45 +11,84 @@ A comprehensive library management system for tracking students, payments, and s
 - Subscription expiry alerts
 - Multi-currency support
 
-## Deployment on Vercel with MongoDB Atlas
+## Local Development Setup
 
-### 1. MongoDB Atlas Setup
-1. Go to [MongoDB Atlas](https://www.mongodb.com/atlas)
-2. Create a free account and cluster
-3. Create a database user
-4. Get your connection string
-5. Whitelist your IP (or use 0.0.0.0/0 for all IPs)
+### 1. Prerequisites
+- Node.js 18+ installed
+- MongoDB installed locally OR MongoDB Atlas account
+- Git
 
-### 2. Vercel Deployment
-1. Push your code to GitHub
-2. Go to [Vercel](https://vercel.com)
-3. Import your GitHub repository
-4. Add environment variables:
-   ```
-   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/library_management
-   JWT_SECRET=your_random_secret_key
-   VITE_API_URL=https://your-app.vercel.app/api
-   ```
-5. Deploy!
+### 2. Installation
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd student-management-system
 
-### 3. Local Development
-1. **Clone and install**
+# Install dependencies
+npm install
+
+# Install Vercel CLI globally
+npm install -g vercel
+```
+
+### 3. Environment Setup
+1. Copy the environment file:
    ```bash
-   git clone your-repo-url
-   cd student-management-system
-   npm install
+   cp .env.local .env
    ```
 
-2. **Environment setup**
-   ```bash
-   cp .env.example .env
-   # Add your MongoDB URI and other variables
+2. Update `.env` with your MongoDB URI:
+   ```
+   MONGODB_URI=mongodb://localhost:27017/library_management
+   # OR for MongoDB Atlas:
+   # MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/library_management
    ```
 
-3. **Run locally**
-   ```bash
-   npm run dev
-   ```
+### 4. Database Setup
+
+**Option A: Local MongoDB**
+1. Install MongoDB locally
+2. Start MongoDB service
+3. Database will be created automatically
+
+**Option B: MongoDB Atlas**
+1. Create account at [MongoDB Atlas](https://www.mongodb.com/atlas)
+2. Create a cluster
+3. Get connection string
+4. Update MONGODB_URI in .env
+
+### 5. Running the Application
+
+**Method 1: Using Vercel Dev (Recommended)**
+```bash
+# Start the development server with API functions
+npm run dev:api
+```
+This runs both the frontend and API functions locally.
+
+**Method 2: Frontend Only**
+```bash
+# Start only the frontend (API calls will fail)
+npm run dev
+```
+
+### 6. Access the Application
+- Frontend: http://localhost:3000
+- API: http://localhost:3000/api/students
+
+### 7. Testing
+1. Open http://localhost:3000
+2. Navigate to Students page
+3. Add a new student
+4. Check if data persists in MongoDB
+
+## Production Deployment
+
+### Vercel Deployment
+1. Push code to GitHub
+2. Connect to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy automatically
 
 ## API Endpoints
 

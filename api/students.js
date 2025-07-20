@@ -1,5 +1,4 @@
-const clientPromise = require('../lib/mongodb');
-const { ObjectId } = require('mongodb');
+import clientPromise from '../lib/mongodb.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -79,6 +78,7 @@ export default async function handler(req, res) {
 
       console.log('Updating student:', id);
 
+      const { ObjectId } = await import('mongodb');
       const updateDoc = {
         ...updateData,
         subscriptionEndDate: new Date(updateData.subscriptionEndDate),
@@ -109,6 +109,7 @@ export default async function handler(req, res) {
       }
 
       console.log('Deleting student:', id);
+      const { ObjectId } = await import('mongodb');
       await collection.deleteOne({ _id: new ObjectId(id) });
       return res.status(200).json({ message: 'Student deleted successfully' });
     }

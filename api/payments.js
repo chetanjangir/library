@@ -1,5 +1,4 @@
-const clientPromise = require('../lib/mongodb');
-const { ObjectId } = require('mongodb');
+import clientPromise from '../lib/mongodb.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -53,6 +52,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Payment ID is required for updates' });
       }
 
+      const { ObjectId } = await import('mongodb');
       const updateDoc = {
         ...updateData,
         updatedAt: new Date()

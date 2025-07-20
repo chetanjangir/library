@@ -1,4 +1,4 @@
-const clientPromise = require('../lib/mongodb');
+import clientPromise from '../lib/mongodb.js';
 
 export default async function handler(req, res) {
   // Enable CORS
