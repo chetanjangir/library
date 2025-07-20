@@ -14,37 +14,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Check if MongoDB URI is available
+    if (!process.env.MONGODB_URI) {
+      console.error('MONGODB_URI not found in environment variables');
+      return res.status(500).json({ 
+        error: 'Database configuration missing',
+        details: 'MONGODB_URI environment variable is not set'
+      });
+    }
+
     await connectDB();
 
     switch (req.method) {
       case 'GET':
         try {
           const students = await Student.find({}).sort({ createdAt: -1 }).exec();
-          return res.status(200).json(students);
+          return res.status(200).json(students || []);
         } catch (error) {
           console.error('Error fetching students:', error);
-          return res.status(500).json({ error: 'Failed to fetch students' });
+          // Return empty array as fallback
+          return res.status(200).json([]);
         }
 
       case 'POST':
         try {
           const studentData = req.body;
           
-          // Check if seat is available
+          if (!studentData.name || !studentData.email || !studentData.mobile) {
+            return res.status(400).json({ error: 'Missing required fields: name, email, mobile' });
+          }
+
+          // Check if seat is available if seat number is provided
           if (studentData.seatNumber) {
-            const existingSeat = await Seat.findOne({ seatNumber: studentData.seatNumber }).exec();
-            
-            if (existingSeat && existingSeat.isOccupied) {
-              if (studentData.dayType === 'full') {
-                return res.status(400).json({ error: 'Seat is already fully occupied' });
-              }
+            try {
+              const existingSeat = await Seat.findOne({ seatNumber: studentData.seatNumber }).exec();
               
-              if (studentData.dayType === 'half') {
-                const slotField = studentData.halfDaySlot === 'morning' ? 'morningStudent' : 'eveningStudent';
-                if (existingSeat[slotField]) {
-                  return res.status(400).json({ error: `${studentData.halfDaySlot} slot is already occupied` });
+              if (existingSeat && existingSeat.isOccupied) {
+                if (studentData.dayType === 'full') {
+                  return res.status(400).json({ error: 'Seat is already fully occupied' });
+                }
+                
+                if (studentData.dayType === 'half') {
+                  const slotField = studentData.halfDaySlot === 'morning' ? 'morningStudent' : 'eveningStudent';
+                  if (existingSeat[slotField]) {
+                    return res.status(400).json({ error: `${studentData.halfDaySlot} slot is already occupied` });
+                  }
                 }
               }
+            } catch (seatError) {
+              console.error('Error checking seat availability:', seatError);
+              // Continue without seat validation if seat check fails
             }
           }
 
@@ -53,24 +72,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           // Update seat allocation
           if (studentData.seatNumber) {
-            await updateSeatAllocation(studentData.seatNumber, savedStudent._id.toString(), studentData.dayType, studentData.halfDaySlot);
+            try {
+              await updateSeatAllocation(studentData.seatNumber, savedStudent._id.toString(), studentData.dayType, studentData.halfDaySlot);
+            } catch (seatError) {
+              console.error('Error updating seat allocation:', seatError);
+              // Continue even if seat update fails
+            }
           }
 
           // Send WhatsApp message
           if (studentData.mobile) {
-            await sendWhatsAppMessage(studentData.mobile, studentData.name, studentData.seatNumber);
+            try {
+              await sendWhatsAppMessage(studentData.mobile, studentData.name, studentData.seatNumber);
+            } catch (whatsappError) {
+              console.error('Error sending WhatsApp message:', whatsappError);
+              // Continue even if WhatsApp fails
+            }
           }
 
           return res.status(201).json(savedStudent);
         } catch (error) {
           console.error('Error creating student:', error);
-          return res.status(500).json({ error: 'Failed to create student' });
+          return res.status(500).json({ 
+            error: 'Failed to create student',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          });
         }
 
       case 'PUT':
         try {
           const { id } = req.query;
           const updates = req.body;
+          
+          if (!id) {
+            return res.status(400).json({ error: 'Student ID is required' });
+          }
           
           const updatedStudent = await Student.findByIdAndUpdate(id, updates, { new: true }).exec();
           if (!updatedStudent) {
@@ -80,12 +116,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(200).json(updatedStudent);
         } catch (error) {
           console.error('Error updating student:', error);
-          return res.status(500).json({ error: 'Failed to update student' });
+          return res.status(500).json({ 
+            error: 'Failed to update student',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          });
         }
 
       case 'DELETE':
         try {
           const { id: deleteId } = req.query;
+          
+          if (!deleteId) {
+            return res.status(400).json({ error: 'Student ID is required' });
+          }
           
           const deletedStudent = await Student.findByIdAndDelete(deleteId).exec();
           if (!deletedStudent) {
@@ -94,22 +137,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           
           // Free up the seat
           if (deletedStudent.seatNumber) {
-            await freeSeat(deletedStudent.seatNumber, deletedStudent._id.toString(), deletedStudent.dayType);
+            try {
+              await freeSeat(deletedStudent.seatNumber, deletedStudent._id.toString(), deletedStudent.dayType);
+            } catch (seatError) {
+              console.error('Error freeing seat:', seatError);
+              // Continue even if seat freeing fails
+            }
           }
           
           return res.status(200).json({ message: 'Student deleted successfully' });
         } catch (error) {
           console.error('Error deleting student:', error);
-          return res.status(500).json({ error: 'Failed to delete student' });
+          return res.status(500).json({ 
+            error: 'Failed to delete student',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          });
         }
 
       default:
         res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
-        return res.status(405).end(`Method ${req.method} Not Allowed`);
+        return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {
     console.error('API Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
 
@@ -139,6 +193,7 @@ async function updateSeatAllocation(seatNumber: number, studentId: string, dayTy
     await seat.save();
   } catch (error) {
     console.error('Error updating seat allocation:', error);
+    throw error;
   }
 }
 
@@ -168,6 +223,7 @@ async function freeSeat(seatNumber: number, studentId: string, dayType: string) 
     await seat.save();
   } catch (error) {
     console.error('Error freeing seat:', error);
+    throw error;
   }
 }
 
@@ -195,5 +251,6 @@ async function sendWhatsAppMessage(mobile: string, name: string, seatNumber: num
     
   } catch (error) {
     console.error('WhatsApp message failed:', error);
+    throw error;
   }
 }

@@ -1,96 +1,49 @@
 import React, { useState } from 'react';
 import SeatMap from '../components/seats/SeatMap';
+import { apiService } from '../services/api';
 import type { Seat, Student } from '../types';
 
-// Generate 100 seats with sample data
-const generateSeats = (): Seat[] => {
+// Generate 100 vacant seats as fallback
+const generateVacantSeats = (): Seat[] => {
   const seats: Seat[] = [];
   
   for (let i = 1; i <= 100; i++) {
-    const random = Math.random();
-    
-    if (random < 0.3) {
-      // 30% vacant seats
-      seats.push({
-        id: i,
-        isOccupied: false,
-        type: 'vacant'
-      });
-    } else if (random < 0.6) {
-      // 30% full day occupied
-      seats.push({
-        id: i,
-        isOccupied: true,
-        type: 'full',
-        student: {
-          id: `student-${i}`,
-          name: `Student ${i}`,
-          email: `student${i}@example.com`,
-          mobile: `+123456789${i}`,
-          joinDate: '2023-11-01',
-          planType: 'monthly',
-          dayType: 'full',
-          status: 'active',
-          seatNumber: i,
-          subscriptionEndDate: '2024-01-15',
-          currency: 'USD',
-          monthlyAmount: 100,
-          halfDayAmount: 60,
-          fullDayAmount: 100
-        }
-      });
-    } else {
-      // 40% half day shared
-      seats.push({
-        id: i,
-        isOccupied: true,
-        type: 'half-shared',
-        halfDayStudents: {
-          morning: {
-            id: `student-${i}-m`,
-            name: `Morning Student ${i}`,
-            email: `morning${i}@example.com`,
-            mobile: `+123456789${i}`,
-            joinDate: '2023-11-01',
-            planType: 'monthly',
-            dayType: 'half',
-            halfDaySlot: 'morning',
-            status: 'active',
-            seatNumber: i,
-            subscriptionEndDate: '2024-01-15',
-            currency: 'USD',
-            monthlyAmount: 100,
-            halfDayAmount: 60,
-            fullDayAmount: 100
-          },
-          evening: Math.random() > 0.3 ? {
-            id: `student-${i}-e`,
-            name: `Evening Student ${i}`,
-            email: `evening${i}@example.com`,
-            mobile: `+123456789${i}`,
-            joinDate: '2023-11-01',
-            planType: 'monthly',
-            dayType: 'half',
-            halfDaySlot: 'evening',
-            status: 'active',
-            seatNumber: i,
-            subscriptionEndDate: '2024-01-15',
-            currency: 'USD',
-            monthlyAmount: 100,
-            halfDayAmount: 60,
-            fullDayAmount: 100
-          } : undefined
-        }
-      });
-    }
+    seats.push({
+      id: i,
+      isOccupied: false,
+      type: 'vacant'
+    });
   }
   
   return seats;
 };
 
 function Seats() {
-  const [seats] = useState<Seat[]>(generateSeats());
+  const [seats, setSeats] = useState<Seat[]>(generateVacantSeats());
   const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load seats on component mount
+  React.useEffect(() => {
+    loadSeats();
+  }, []);
+
+  const loadSeats = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiService.getSeats();
+      setSeats(data);
+    } catch (err) {
+      setError('Failed to load seats. Using default vacant seats.');
+      console.error('Error loading seats:', err);
+      // Keep the vacant seats as fallback
+      setSeats(generateVacantSeats());
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSeatClick = (seatId: number) => {
     const seat = seats.find(s => s.id === seatId);
@@ -101,8 +54,22 @@ function Seats() {
   const occupiedSeats = seats.filter(s => s.isOccupied).length;
   const halfDaySeats = seats.filter(s => s.type === 'half-shared').length;
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">Loading seats...</div>
+      </div>
+    );
+  }
+
   return (
     <div>
+      {error && (
+        <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+      
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Seat Management</h1>
         <div className="text-sm text-gray-600">
@@ -112,7 +79,7 @@ function Seats() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <SeatMap seats={seats} onSeatClick={handleSeatClick} />
+          <SeatMap seats={seats} onSeatClick={handleSeatClick} onRefresh={loadSeats} />
         </div>
         
         <div className="space-y-6">

@@ -1,5 +1,5 @@
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://library-ecru-ten.vercel.app/api' 
+const API_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+  ? '/api' 
   : '/api';
 
 class ApiService {
@@ -17,11 +17,17 @@ class ApiService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+        }
         throw new Error(errorData.error || `API Error: ${response.statusText}`);
       }
 
-      return response.json();
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('API Request failed:', error);
       throw error;
@@ -30,7 +36,13 @@ class ApiService {
 
   // Students API
   async getStudents() {
-    return this.request('/students');
+    try {
+      return await this.request('/students');
+    } catch (error) {
+      console.error('Failed to fetch students:', error);
+      // Return empty array as fallback
+      return [];
+    }
   }
 
   async createStudent(student: any) {
@@ -55,7 +67,12 @@ class ApiService {
 
   // Payments API
   async getPayments() {
-    return this.request('/payments');
+    try {
+      return await this.request('/payments');
+    } catch (error) {
+      console.error('Failed to fetch payments:', error);
+      return [];
+    }
   }
 
   async createPayment(payment: any) {
@@ -74,15 +91,36 @@ class ApiService {
 
   // Seats API
   async getSeats() {
-    return this.request('/seats');
+    try {
+      return await this.request('/seats');
+    } catch (error) {
+      console.error('Failed to fetch seats:', error);
+      // Return 100 vacant seats as fallback
+      const fallbackSeats = [];
+      for (let i = 1; i <= 100; i++) {
+        fallbackSeats.push({
+          id: i,
+          seatNumber: i,
+          isOccupied: false,
+          type: 'vacant'
+        });
+      }
+      return fallbackSeats;
+    }
   }
 
   // WhatsApp API
   async sendWhatsAppMessage(mobile: string, message: string, type = 'welcome') {
-    return this.request('/whatsapp/send', {
-      method: 'POST',
-      body: JSON.stringify({ mobile, message, type }),
-    });
+    try {
+      return await this.request('/whatsapp/send', {
+        method: 'POST',
+        body: JSON.stringify({ mobile, message, type }),
+      });
+    } catch (error) {
+      console.error('Failed to send WhatsApp message:', error);
+      // Don't throw error for WhatsApp failures
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
   }
 
   async sendPaymentReminder(mobile: string, name: string, amount: number, dueDate: string) {

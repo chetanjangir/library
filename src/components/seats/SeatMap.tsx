@@ -5,9 +5,10 @@ import type { Seat, Student } from '../../types';
 interface SeatMapProps {
   seats: Seat[];
   onSeatClick: (seatId: number) => void;
+  onRefresh?: () => void;
 }
 
-function SeatMap({ seats, onSeatClick }: SeatMapProps) {
+function SeatMap({ seats, onSeatClick, onRefresh }: SeatMapProps) {
   const getSeatColor = (seat: Seat) => {
     if (!seat.isOccupied) return 'bg-green-100 border-green-300 hover:bg-green-200';
     if (seat.type === 'half-shared') return 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200';

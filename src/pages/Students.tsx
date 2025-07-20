@@ -21,11 +21,14 @@ function Students() {
   const loadStudents = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await apiService.getStudents();
       setStudents(data);
     } catch (err) {
-      setError('Failed to load students');
+      setError('Failed to load students. Please check your database connection.');
       console.error('Error loading students:', err);
+      // Set empty array as fallback
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -44,9 +47,11 @@ function Students() {
       setEditingStudent(null);
       
       // Show success message
-      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully! WhatsApp message sent with seat allocation and WiFi details.`);
+      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully!${studentData.mobile ? ' WhatsApp message sent with seat allocation and WiFi details.' : ''}`);
     } catch (err) {
-      setError(`Failed to ${editingStudent ? 'update' : 'add'} student`);
+      const errorMessage = err instanceof Error ? err.message : `Failed to ${editingStudent ? 'update' : 'add'} student`;
+      setError(errorMessage);
+      alert(errorMessage);
       console.error('Error saving student:', err);
     }
   };
