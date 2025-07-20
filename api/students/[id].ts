@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import connectDB from '../../src/lib/mongodb';
-import Payment from '../../src/models/Payment';
 import Student from '../../src/models/Student';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -13,35 +12,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
+  const { id } = req.query;
+
   try {
     await connectDB();
 
     switch (req.method) {
       case 'GET':
-        const payments = await Payment.find({})
-          .populate('studentId', 'name')
-          .sort({ dueDate: -1 });
-        return res.status(200).json(payments);
-
-      case 'POST':
-        const paymentData = req.body;
-        const payment = new Payment(paymentData);
-        await payment.save();
-        return res.status(201).json(payment);
+        const student = await Student.findById(id);
+        if (!student) {
+          return res.status(404).json({ error: 'Student not found' });
+        }
+        return res.status(200).json(student);
 
       case 'PUT':
-        const { id } = req.query;
         const updates = req.body;
-        
-        const updatedPayment = await Payment.findByIdAndUpdate(id, updates, { new: true });
-        if (!updatedPayment) {
-          return res.status(404).json({ error: 'Payment not found' });
+        const updatedStudent = await Student.findByIdAndUpdate(id, updates, { new: true });
+        if (!updatedStudent) {
+          return res.status(404).json({ error: 'Student not found' });
         }
-        
-        return res.status(200).json(updatedPayment);
+        return res.status(200).json(updatedStudent);
+
+      case 'DELETE':
+        const deletedStudent = await Student.findByIdAndDelete(id);
+        if (!deletedStudent) {
+          return res.status(404).json({ error: 'Student not found' });
+        }
+        return res.status(200).json({ message: 'Student deleted successfully' });
 
       default:
-        res.setHeader('Allow', ['GET', 'POST', 'PUT']);
+        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
         return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
   } catch (error) {

@@ -3,77 +3,52 @@ import { Plus, MessageCircle, AlertTriangle } from 'lucide-react';
 import Button from '../components/ui/Button';
 import StudentForm from '../components/students/StudentForm';
 import StudentList from '../components/students/StudentList';
+import { apiService } from '../services/api';
 import type { Student } from '../types';
 
-// Sample data with enhanced fields
-const sampleStudents: Student[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    mobile: '+1234567890',
-    joinDate: '2023-11-01',
-    planType: 'monthly',
-    dayType: 'full',
-    status: 'active',
-    seatNumber: 15,
-    subscriptionEndDate: '2024-01-15',
-    currency: 'USD',
-    monthlyAmount: 100,
-    halfDayAmount: 60,
-    fullDayAmount: 100
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    mobile: '+1234567891',
-    joinDate: '2023-11-05',
-    planType: 'monthly',
-    dayType: 'half',
-    halfDaySlot: 'morning',
-    status: 'active',
-    seatNumber: 23,
-    subscriptionEndDate: '2024-01-10',
-    currency: 'USD',
-    monthlyAmount: 100,
-    halfDayAmount: 60,
-    fullDayAmount: 100
-  },
-  {
-    id: '3',
-    name: 'Bob Wilson',
-    email: 'bob@example.com',
-    mobile: '+1234567892',
-    joinDate: '2023-11-10',
-    planType: 'daily',
-    dayType: 'full',
-    status: 'expired',
-    seatNumber: 7,
-    subscriptionEndDate: '2023-12-25',
-    currency: 'EUR',
-    monthlyAmount: 90,
-    halfDayAmount: 55,
-    fullDayAmount: 90
-  }
-];
-
 function Students() {
-  const [students, setStudents] = useState<Student[]>(sampleStudents);
+  const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAddStudent = (studentData: Omit<Student, 'id'>) => {
-    const newStudent: Student = {
-      ...studentData,
-      id: (students.length + 1).toString()
-    };
-    setStudents([...students, newStudent]);
-    setShowForm(false);
-    setEditingStudent(null);
-    
-    // Simulate WhatsApp notification
-    alert(`WhatsApp message sent to ${newStudent.name} (${newStudent.mobile}):\n\nWelcome to our library! Your seat ${newStudent.seatNumber} has been allocated.\n\nWiFi Details:\nSSID: LibraryWiFi\nPassword: Study2024\n\nEnjoy your studies!`);
+  // Load students on component mount
+  React.useEffect(() => {
+    loadStudents();
+  }, []);
+
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getStudents();
+      setStudents(data);
+    } catch (err) {
+      setError('Failed to load students');
+      console.error('Error loading students:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStudent = async (studentData: Omit<Student, 'id'>) => {
+    try {
+      if (editingStudent) {
+        await apiService.updateStudent(editingStudent.id, studentData);
+      } else {
+        await apiService.createStudent(studentData);
+      }
+      
+      await loadStudents();
+      setShowForm(false);
+      setEditingStudent(null);
+      
+      // Show success message
+      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully! WhatsApp message sent with seat allocation and WiFi details.`);
+    } catch (err) {
+      setError(`Failed to ${editingStudent ? 'update' : 'add'} student`);
+      console.error('Error saving student:', err);
+    }
   };
 
   const handleEditStudent = (student: Student) => {
@@ -81,8 +56,19 @@ function Students() {
     setShowForm(true);
   };
 
-  const handleSendReminder = (student: Student) => {
-    alert(`Payment reminder sent to ${student.name} (${student.mobile}):\n\nDear ${student.name}, your subscription expires on ${new Date(student.subscriptionEndDate).toLocaleDateString()}. Please renew to continue using our services.`);
+  const handleSendReminder = async (student: Student) => {
+    try {
+      await apiService.sendPaymentReminder(
+        student.mobile,
+        student.name,
+        student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount,
+        new Date(student.subscriptionEndDate).toLocaleDateString()
+      );
+      alert(`Payment reminder sent to ${student.name}`);
+    } catch (err) {
+      alert('Failed to send reminder');
+      console.error('Error sending reminder:', err);
+    }
   };
 
   const getExpiringSoonStudents = () => {
@@ -96,11 +82,25 @@ function Students() {
 
   const expiringSoonStudents = getExpiringSoonStudents();
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">Loading students...</div>
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div className="px-4 sm:px-6 lg:px-8">
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+      
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Students</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Students</h1>
           {expiringSoonStudents.length > 0 && (
             <div className="mt-2 flex items-center text-yellow-600">
               <AlertTriangle className="w-4 h-4 mr-1" />
@@ -108,21 +108,25 @@ function Students() {
             </div>
           )}
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
           {expiringSoonStudents.length > 0 && (
             <Button 
               variant="secondary" 
-              onClick={() => {
-                expiringSoonStudents.forEach(student => handleSendReminder(student));
+              onClick={async () => {
+                for (const student of expiringSoonStudents) {
+                  await handleSendReminder(student);
+                }
               }}
             >
               <MessageCircle className="w-4 h-4 mr-2" />
-              Notify Expiring ({expiringSoonStudents.length})
+              <span className="hidden sm:inline">Notify Expiring ({expiringSoonStudents.length})</span>
+              <span className="sm:hidden">Notify ({expiringSoonStudents.length})</span>
             </Button>
           )}
           <Button onClick={() => setShowForm(true)}>
             <Plus className="w-5 h-5 mr-2" />
-            Add Student
+            <span className="hidden sm:inline">Add Student</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         </div>
       </div>

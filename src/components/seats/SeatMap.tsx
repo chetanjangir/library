@@ -49,29 +49,29 @@ function SeatMap({ seats, onSeatClick }: SeatMapProps) {
         </div>
       </div>
       
-      <div className="grid grid-cols-10 gap-2">
+      <div className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-10 gap-1 sm:gap-2">
         {seats.map((seat) => (
           <div
             key={seat.id}
             className={`
-              relative aspect-square border-2 rounded-lg cursor-pointer transition-colors
-              flex items-center justify-center text-xs font-medium
+              relative aspect-square border-2 rounded cursor-pointer transition-colors
+              flex items-center justify-center text-xs font-medium min-h-[40px] sm:min-h-[50px]
               ${getSeatColor(seat)}
             `}
             onClick={() => onSeatClick(seat.id)}
             title={getSeatTooltip(seat)}
           >
             <div className="text-center">
-              <div className="flex justify-center mb-1">
+              <div className="flex justify-center mb-0.5 sm:mb-1">
                 {getSeatIcon(seat)}
               </div>
-              <div>{seat.id}</div>
+              <div className="text-xs">{seat.id}</div>
             </div>
           </div>
         ))}
       </div>
       
-      <div className="mt-4 text-xs text-gray-500">
+      <div className="mt-2 sm:mt-4 text-xs text-gray-500">
         Click on any seat to view details or assign a student
       </div>
     </div>

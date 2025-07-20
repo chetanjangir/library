@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://library-ecru-ten.vercel.app/api' 
+  : '/api';
 
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
@@ -11,16 +13,22 @@ class ApiService {
       ...options,
     };
 
-    const response = await fetch(url, config);
-    
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
-    }
+    try {
+      const response = await fetch(url, config);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `API Error: ${response.statusText}`);
+      }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      console.error('API Request failed:', error);
+      throw error;
+    }
   }
 
-  // Students
+  // Students API
   async getStudents() {
     return this.request('/students');
   }
@@ -39,7 +47,13 @@ class ApiService {
     });
   }
 
-  // Payments
+  async deleteStudent(id: string) {
+    return this.request(`/students/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Payments API
   async getPayments() {
     return this.request('/payments');
   }
@@ -58,9 +72,22 @@ class ApiService {
     });
   }
 
-  // Seats
+  // Seats API
   async getSeats() {
     return this.request('/seats');
+  }
+
+  // WhatsApp API
+  async sendWhatsAppMessage(mobile: string, message: string, type = 'welcome') {
+    return this.request('/whatsapp/send', {
+      method: 'POST',
+      body: JSON.stringify({ mobile, message, type }),
+    });
+  }
+
+  async sendPaymentReminder(mobile: string, name: string, amount: number, dueDate: string) {
+    const message = `Dear ${name}, your payment of $${amount} is due on ${dueDate}. Please make the payment to continue using our library services.`;
+    return this.sendWhatsAppMessage(mobile, message, 'reminder');
   }
 }
 

@@ -12,8 +12,9 @@ function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-white shadow-sm h-[calc(100vh-4rem)]">
-      <nav className="mt-5 px-2">
+    <aside className="w-full lg:w-64 bg-white shadow-sm lg:h-[calc(100vh-4rem)]">
+      <nav className="mt-2 lg:mt-5 px-2">
+        <div className="flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-1 overflow-x-auto lg:overflow-x-visible">
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.to;
@@ -21,17 +22,18 @@ function Sidebar() {
             <Link
               key={link.to}
               to={link.to}
-              className={`group flex items-center px-2 py-2 text-base font-medium rounded-md ${
+              className={`group flex items-center px-3 py-2 text-sm lg:text-base font-medium rounded-md whitespace-nowrap ${
                 isActive
                   ? 'bg-indigo-100 text-indigo-600'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              <Icon className="mr-3 h-6 w-6" />
-              {link.label}
+              <Icon className="mr-2 lg:mr-3 h-5 w-5 lg:h-6 lg:w-6 flex-shrink-0" />
+              <span className="hidden sm:inline">{link.label}</span>
             </Link>
           );
         })}
+        </div>
       </nav>
     </aside>
   );
