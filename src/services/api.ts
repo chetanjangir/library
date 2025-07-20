@@ -110,10 +110,9 @@ class ApiService {
   // WhatsApp API
   async sendWhatsAppMessage(mobile: string, message: string, type = 'welcome') {
     try {
-      return await this.request('/whatsapp/send', {
-        method: 'POST',
-        body: JSON.stringify({ mobile, message, type }),
-      });
+      // Simulate WhatsApp message sending
+      console.log('WhatsApp message:', { mobile, message, type });
+      return { success: true, message: 'WhatsApp message sent (simulated)' };
     } catch (error) {
       console.error('Failed to send WhatsApp message:', error);
       // Don't throw error for WhatsApp failures
