@@ -3,6 +3,9 @@ const API_URL = '/api';
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_URL}${endpoint}`;
+    
+    console.log('Making API request to:', url, options.method || 'GET');
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -14,10 +17,13 @@ class ApiService {
     try {
       const response = await fetch(url, config);
       
+      console.log('API response status:', response.status);
+      
       if (!response.ok) {
         let errorData;
         try {
           errorData = await response.json();
+          console.error('API error data:', errorData);
         } catch {
           errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
         }
@@ -25,9 +31,10 @@ class ApiService {
       }
 
       const data = await response.json();
+      console.log('API response data:', data);
       return data;
     } catch (error) {
-      console.error('API Request failed:', error);
+      console.error('API Request failed for', url, ':', error);
       throw error;
     }
   }
