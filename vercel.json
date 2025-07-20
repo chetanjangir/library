@@ -1,6 +1,6 @@
 {
   "functions": {
-    "app/api/**/*.js": {
+    "api/**/*.ts": {
       "runtime": "nodejs18.x"
     }
   },
