@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import SeatMap from '../components/seats/SeatMap';
 import type { Seat, Student } from '../types';
 

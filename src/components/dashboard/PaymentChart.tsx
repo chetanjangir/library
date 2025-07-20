@@ -1,3 +1,4 @@
+import React from 'react';
 import { BarChart, Ban as Bar } from 'lucide-react';
 
 function PaymentChart() {

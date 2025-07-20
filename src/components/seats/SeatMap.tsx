@@ -1,3 +1,4 @@
+import React from 'react';
 import { User, Users } from 'lucide-react';
 import type { Seat, Student } from '../../types';
 

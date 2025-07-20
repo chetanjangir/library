@@ -1,3 +1,4 @@
+import React from 'react';
 import { ArrowUpIcon, ArrowDownIcon } from 'lucide-react';
 import type { Statistic } from '../../types';
 

@@ -1,3 +1,4 @@
+import React from 'react';
 import { Edit, MessageCircle, AlertTriangle } from 'lucide-react';
 import type { Student } from '../../types';
 import Button from '../ui/Button';

@@ -1,3 +1,4 @@
+import React from 'react';
 import StatCard from '../components/dashboard/StatCard';
 import PaymentChart from '../components/dashboard/PaymentChart';
 import UpcomingPayments from '../components/dashboard/UpcomingPayments';

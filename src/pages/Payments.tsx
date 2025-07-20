@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Plus, DollarSign } from 'lucide-react';
 import Button from '../components/ui/Button';
 import PaymentForm from '../components/payments/PaymentForm';
