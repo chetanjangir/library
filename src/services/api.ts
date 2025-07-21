@@ -96,10 +96,11 @@ class ApiService {
   }
 
   async deletePayment(id: string) {
-    return this.request('/payments', {
+    const result = await this.request('/payments', {
       method: 'DELETE',
       body: JSON.stringify({ id }),
     });
+    return result;
   }
 
   // Seats API

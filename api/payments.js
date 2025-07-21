@@ -197,8 +197,16 @@ export default async function handler(req, res) {
 
       console.log('Deleting payment:', id);
       const { ObjectId } = await import('mongodb');
-      await paymentsCollection.deleteOne({ _id: new ObjectId(id) });
-      return res.status(200).json({ message: 'Payment deleted successfully' });
+      const result = await paymentsCollection.deleteOne({ _id: new ObjectId(id) });
+      
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'Payment not found' });
+      }
+      
+      return res.status(200).json({ 
+        message: 'Payment deleted successfully',
+        deletedId: id
+      });
     }
     return res.status(405).json({ error: 'Method not allowed' });
 

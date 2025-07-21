@@ -131,16 +131,16 @@ function Payments() {
 
   // Calculate payment statistics
   const totalPending = payments
-    .filter(p => p.status === 'pending' || p.status === 'due')
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter(p => p && (p.status === 'pending' || p.status === 'due'))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const totalOverdue = payments
-    .filter(p => p.status === 'overdue' || p.status === 'expired')
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter(p => p && (p.status === 'overdue' || p.status === 'expired'))
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const totalPaid = payments
-    .filter(p => p.status === 'paid')
-    .reduce((sum, p) => sum + p.amount, 0);
+    .filter(p => p && p.status === 'paid')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
 
   if (loading) {
     return (
@@ -177,7 +177,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Paid</p>
-              <p className="text-2xl font-semibold text-gray-900">${totalPaid.toFixed(2)}</p>
+              <p className="text-2xl font-semibold text-gray-900">${(totalPaid || 0).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -187,7 +187,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-yellow-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Due</p>
-              <p className="text-2xl font-semibold text-gray-900">${totalPending.toFixed(2)}</p>
+              <p className="text-2xl font-semibold text-gray-900">${(totalPending || 0).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -197,7 +197,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-red-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Overdue</p>
-              <p className="text-2xl font-semibold text-gray-900">${totalOverdue.toFixed(2)}</p>
+              <p className="text-2xl font-semibold text-gray-900">${(totalOverdue || 0).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -256,14 +256,14 @@ function Payments() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {payments.map((payment) => (
+                    {payments.filter(p => p && p.id).map((payment) => (
                       <tr key={payment.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{payment.studentName}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {getCurrencySymbol(payment.currency)}{payment.amount.toFixed(2)}
+                            {getCurrencySymbol(payment.currency || 'USD')}{(payment.amount || 0).toFixed(2)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -292,7 +292,7 @@ function Payments() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {new Date(payment.dueDate).toLocaleDateString()}
+                            {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString() : 'N/A'}
                           </div>
                           {payment.paidDate && (
                             <div className="text-xs text-gray-500">
@@ -302,7 +302,7 @@ function Payments() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(payment.status)}`}>
-                            {payment.status}
+                            {payment.status || 'unknown'}
                           </span>
                         </td>
                         {isAdmin() && (
