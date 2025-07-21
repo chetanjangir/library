@@ -55,3 +55,18 @@ export interface NotificationSettings {
     password: string;
   };
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'student';
+  studentId?: string; // If role is student, links to student record
+  createdAt: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}

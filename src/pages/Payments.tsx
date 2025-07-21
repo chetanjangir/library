@@ -3,9 +3,11 @@ import { Plus, DollarSign, Edit } from 'lucide-react';
 import Button from '../components/ui/Button';
 import PaymentForm from '../components/payments/PaymentForm';
 import { apiService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import type { Payment, Student } from '../types';
 
 function Payments() {
+  const { isAdmin, user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -29,8 +31,18 @@ function Payments() {
         apiService.getPayments()
       ]);
       
-      setStudents(studentsData);
-      setPayments(paymentsData);
+      if (isAdmin()) {
+        // Admin sees all data
+        setStudents(studentsData);
+        setPayments(paymentsData);
+      } else {
+        // Student sees only their own data
+        const currentStudent = studentsData.find(s => s.id === user?.studentId);
+        const studentPayments = paymentsData.filter(p => p.studentId === user?.studentId);
+        
+        setStudents(currentStudent ? [currentStudent] : []);
+        setPayments(studentPayments);
+      }
     } catch (err) {
       setError('Failed to load data. Please check your database connection.');
       console.error('Error loading data:', err);
@@ -42,6 +54,11 @@ function Payments() {
   };
 
   const handleAddPayment = async (paymentData: Omit<Payment, 'id'>) => {
+    if (!isAdmin()) {
+      alert('Only administrators can modify payments');
+      return;
+    }
+    
     try {
       if (editingPayment) {
         await apiService.updatePayment(editingPayment.id, paymentData);
@@ -63,6 +80,11 @@ function Payments() {
   };
 
   const handleMarkAsPaid = async (paymentId: string) => {
+    if (!isAdmin()) {
+      alert('Only administrators can modify payment status');
+      return;
+    }
+    
     try {
       const payment = payments.find(p => p.id === paymentId);
       if (!payment) return;
@@ -82,6 +104,10 @@ function Payments() {
   };
 
   const handleEditPayment = (payment: Payment) => {
+    if (!isAdmin()) {
+      alert('Only administrators can edit payments');
+      return;
+    }
     setEditingPayment(payment);
     setShowForm(true);
   };
@@ -94,19 +120,21 @@ function Payments() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'pending':
+      case 'due': return 'bg-yellow-100 text-yellow-800';
+      case 'overdue':
+      case 'expired': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   // Calculate payment statistics
   const totalPending = payments
-    .filter(p => p.status === 'pending')
+    .filter(p => p.status === 'pending' || p.status === 'due')
     .reduce((sum, p) => sum + p.amount, 0);
 
   const totalOverdue = payments
-    .filter(p => p.status === 'overdue')
+    .filter(p => p.status === 'overdue' || p.status === 'expired')
     .reduce((sum, p) => sum + p.amount, 0);
 
   const totalPaid = payments
@@ -130,11 +158,15 @@ function Payments() {
       )}
 
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Payments</h1>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="w-5 h-5 mr-2" />
-          Add Payment
-        </Button>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          {isAdmin() ? 'Payments Management' : 'My Payments'}
+        </h1>
+        {isAdmin() && (
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-5 h-5 mr-2" />
+            Add Payment
+          </Button>
+        )}
       </div>
 
       {/* Payment Summary Cards */}
@@ -153,7 +185,7 @@ function Payments() {
           <div className="flex items-center">
             <DollarSign className="w-8 h-8 text-yellow-600" />
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-sm font-medium text-gray-600">Due</p>
               <p className="text-2xl font-semibold text-gray-900">${totalPending.toFixed(2)}</p>
             </div>
           </div>
@@ -171,7 +203,7 @@ function Payments() {
       </div>
 
       <div className="mt-6">
-        {showForm ? (
+        {showForm && isAdmin() ? (
           <div className="bg-white shadow-sm rounded-lg p-6">
             <h2 className="text-lg font-medium mb-4">
               {editingPayment ? 'Edit Payment' : 'Add New Payment'}
@@ -191,14 +223,21 @@ function Payments() {
             {payments.length === 0 ? (
               <div className="text-center py-12">
                 <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Payments Found</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {isAdmin() ? 'No Payments Found' : 'No Payment History'}
+                </h3>
                 <p className="text-gray-500 mb-4">
-                  Payments are automatically generated when students are added.
+                  {isAdmin() 
+                    ? 'Payments are automatically generated when students are added.'
+                    : 'Your payment history will appear here once payments are processed.'
+                  }
                 </p>
-                <Button onClick={() => setShowForm(true)}>
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add Manual Payment
-                </Button>
+                {isAdmin() && (
+                  <Button onClick={() => setShowForm(true)}>
+                    <Plus className="w-5 h-5 mr-2" />
+                    Add Manual Payment
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -210,7 +249,9 @@ function Payments() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Details</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      {isAdmin() && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -243,25 +284,27 @@ function Payments() {
                             {payment.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex space-x-2 justify-end">
-                            <button 
-                              onClick={() => handleEditPayment(payment)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1"
-                              title="Edit Payment"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            {payment.status !== 'paid' && (
-                              <Button 
-                                variant="secondary" 
-                                onClick={() => handleMarkAsPaid(payment.id)}
+                        {isAdmin() && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex space-x-2 justify-end">
+                              <button 
+                                onClick={() => handleEditPayment(payment)}
+                                className="text-indigo-600 hover:text-indigo-900 p-1"
+                                title="Edit Payment"
                               >
-                                Mark as Paid
-                              </Button>
-                            )}
-                          </div>
-                        </td>
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              {payment.status !== 'paid' && (
+                                <Button 
+                                  variant="secondary" 
+                                  onClick={() => handleMarkAsPaid(payment.id)}
+                                >
+                                  Mark as Paid
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

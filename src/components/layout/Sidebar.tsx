@@ -1,11 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, CreditCard, Map, Calendar, BarChart3, Settings } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 function Sidebar() {
   const location = useLocation();
+  const { isAdmin } = useAuth();
 
-  const links = [
+  const adminLinks = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/students', icon: Users, label: 'Students' },
@@ -15,6 +17,12 @@ function Sidebar() {
     { to: '/settings', icon: Settings, label: 'Settings' },
   ];
 
+  const studentLinks = [
+    { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/payments', icon: CreditCard, label: 'My Payments' },
+  ];
+
+  const links = isAdmin() ? adminLinks : studentLinks;
   return (
     <aside className="w-full lg:w-64 bg-white shadow-sm lg:h-[calc(100vh-4rem)]">
       <nav className="mt-2 lg:mt-5 px-2">

@@ -46,6 +46,21 @@ export default async function handler(req, res) {
         const currentDate = new Date();
         const paymentDueDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 15); // 15th of each month
         
+        // Determine payment status based on due date and subscription end date
+        const now = new Date();
+        const subscriptionEndDate = new Date(student.subscription_end_date);
+        let paymentStatus = 'pending';
+        
+        if (paymentDueDate < now) {
+          if (subscriptionEndDate < now) {
+            paymentStatus = 'expired';
+          } else {
+            paymentStatus = 'overdue';
+          }
+        } else {
+          paymentStatus = 'due';
+        }
+        
         // Check if payment already exists for this student and month
         const existingPayment = existingPayments.find(p => 
           p.studentId === student._id.toString() && 
@@ -54,11 +69,26 @@ export default async function handler(req, res) {
         );
         
         if (existingPayment) {
+          // Update status if needed
+          let updatedStatus = existingPayment.status;
+          if (existingPayment.status !== 'paid') {
+            updatedStatus = paymentStatus;
+            
+            // Update in database if status changed
+            if (updatedStatus !== existingPayment.status) {
+              await paymentsCollection.updateOne(
+                { _id: existingPayment._id },
+                { $set: { status: updatedStatus, updated_at: new Date() } }
+              );
+            }
+          }
+          
           // Use existing payment
           allPayments.push({
             ...existingPayment,
             id: existingPayment._id.toString(),
             studentName: student.name,
+            status: updatedStatus,
             _id: undefined
           });
         } else {
@@ -69,7 +99,7 @@ export default async function handler(req, res) {
             amount: monthlyAmount,
             currency: student.currency,
             dueDate: paymentDueDate.toISOString(),
-            status: 'pending',
+            status: paymentStatus,
             planType: student.planType,
             dayType: student.dayType,
             createdAt: new Date(),
