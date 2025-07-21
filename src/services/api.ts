@@ -58,15 +58,16 @@ class ApiService {
   }
 
   async updateStudent(id: string, student: any) {
-    return this.request(`/students/${id}`, {
+    return this.request('/students', {
       method: 'PUT',
-      body: JSON.stringify(student),
+      body: JSON.stringify({ id, ...student }),
     });
   }
 
   async deleteStudent(id: string) {
-    return this.request(`/students/${id}`, {
+    return this.request('/students', {
       method: 'DELETE',
+      body: JSON.stringify({ id }),
     });
   }
 

@@ -102,7 +102,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      const { id } = req.query;
+      const { id } = req.body;
       
       if (!id) {
         return res.status(400).json({ error: 'Student ID is required for deletion' });
