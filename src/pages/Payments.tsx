@@ -177,7 +177,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Paid</p>
-              <p className="text-2xl font-semibold text-gray-900">${(totalPaid || 0).toFixed(2)}</p>
+              <p className="text-2xl font-semibold text-gray-900">{(totalPaid || 0).toFixed(2)}</p>
             </div>
           </div>
         </div>
