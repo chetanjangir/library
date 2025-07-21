@@ -1,15 +1,18 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, Map } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Map, Calendar, BarChart3, Settings } from 'lucide-react';
 
 function Sidebar() {
   const location = useLocation();
 
   const links = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/students', icon: Users, label: 'Students' },
+    { to: '/expiring', icon: Calendar, label: 'Expiring' },
     { to: '/payments', icon: CreditCard, label: 'Payments' },
     { to: '/seats', icon: Map, label: 'Seat Map' },
+    { to: '/settings', icon: Settings, label: 'Settings' },
   ];
 
   return (

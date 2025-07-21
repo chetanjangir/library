@@ -87,10 +87,10 @@ class ApiService {
     });
   }
 
-  async updatePayment(id: string, payment: any) {
+  async updatePayment(id: string, updates: any) {
     return this.request(`/payments/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(payment),
+      body: JSON.stringify({ id, ...updates }),
     });
   }
 

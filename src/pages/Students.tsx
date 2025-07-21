@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Plus, MessageCircle, AlertTriangle, Search, Filter } from 'lucide-react';
 import Button from '../components/ui/Button';
 import StudentForm from '../components/students/StudentForm';
 import StudentList from '../components/students/StudentList';
@@ -12,6 +12,8 @@ function Students() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'expired'>('all');
 
   // Load students on component mount
   React.useEffect(() => {
@@ -87,6 +89,17 @@ function Students() {
 
   const expiringSoonStudents = getExpiringSoonStudents();
 
+  // Filter students based on search and status
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         student.mobile.includes(searchTerm);
+    
+    const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -103,9 +116,10 @@ function Students() {
         </div>
       )}
       
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Students</h1>
+          <p className="text-gray-600 mt-1">Manage student registrations and subscriptions</p>
           {expiringSoonStudents.length > 0 && (
             <div className="mt-2 flex items-center text-yellow-600">
               <AlertTriangle className="w-4 h-4 mr-1" />
@@ -113,7 +127,34 @@ function Students() {
             </div>
           )}
         </div>
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+        
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
+          {/* Search and Filter */}
+          <div className="flex space-x-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search students..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-64"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <select
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+          
+          {/* Action Buttons */}
           {expiringSoonStudents.length > 0 && (
             <Button 
               variant="secondary" 
@@ -153,8 +194,26 @@ function Students() {
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-600">
+                  Showing {filteredStudents.length} of {students.length} students
+                </p>
+                {(searchTerm || statusFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setStatusFilter('all');
+                    }}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            </div>
             <StudentList 
-              students={students} 
+              students={filteredStudents} 
               onEdit={handleEditStudent}
               onSendReminder={handleSendReminder}
             />

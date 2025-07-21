@@ -1,102 +1,89 @@
-import React, { useState } from 'react';
-import { Plus, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, DollarSign, Edit } from 'lucide-react';
 import Button from '../components/ui/Button';
 import PaymentForm from '../components/payments/PaymentForm';
+import { apiService } from '../services/api';
 import type { Payment, Student } from '../types';
 
-// Sample students data for payment form
-const sampleStudents: Student[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    mobile: '+1234567890',
-    joinDate: '2023-11-01',
-    planType: 'monthly',
-    dayType: 'full',
-    status: 'active',
-    seatNumber: 15,
-    subscriptionEndDate: '2024-01-15',
-    currency: 'USD',
-    monthlyAmount: 100,
-    halfDayAmount: 60,
-    fullDayAmount: 100
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    mobile: '+1234567891',
-    joinDate: '2023-11-05',
-    planType: 'monthly',
-    dayType: 'half',
-    halfDaySlot: 'morning',
-    status: 'active',
-    seatNumber: 23,
-    subscriptionEndDate: '2024-01-10',
-    currency: 'USD',
-    monthlyAmount: 100,
-    halfDayAmount: 60,
-    fullDayAmount: 100
-  }
-];
-
-const samplePayments: Payment[] = [
-  {
-    id: '1',
-    studentId: '1',
-    studentName: 'John Doe',
-    amount: 100,
-    currency: 'USD',
-    dueDate: '2023-12-15',
-    status: 'pending',
-    planType: 'monthly',
-    dayType: 'full'
-  },
-  {
-    id: '2',
-    studentId: '2',
-    studentName: 'Jane Smith',
-    amount: 60,
-    currency: 'USD',
-    dueDate: '2023-12-01',
-    paidDate: '2023-11-28',
-    status: 'paid',
-    planType: 'monthly',
-    dayType: 'half'
-  },
-  {
-    id: '3',
-    studentId: '1',
-    studentName: 'John Doe',
-    amount: 100,
-    currency: 'USD',
-    dueDate: '2023-11-30',
-    status: 'overdue',
-    planType: 'monthly',
-    dayType: 'full'
-  }
-];
-
 function Payments() {
-  const [payments, setPayments] = useState<Payment[]>(samplePayments);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleAddPayment = (paymentData: Omit<Payment, 'id'>) => {
-    const newPayment: Payment = {
-      ...paymentData,
-      id: (payments.length + 1).toString()
-    };
-    setPayments([...payments, newPayment]);
-    setShowForm(false);
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Load students and payments
+      const [studentsData, paymentsData] = await Promise.all([
+        apiService.getStudents(),
+        apiService.getPayments()
+      ]);
+      
+      setStudents(studentsData);
+      setPayments(paymentsData);
+    } catch (err) {
+      setError('Failed to load data. Please check your database connection.');
+      console.error('Error loading data:', err);
+      setStudents([]);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleMarkAsPaid = (paymentId: string) => {
-    setPayments(payments.map(payment => 
-      payment.id === paymentId 
-        ? { ...payment, status: 'paid', paidDate: new Date().toISOString() }
-        : payment
-    ));
+  const handleAddPayment = async (paymentData: Omit<Payment, 'id'>) => {
+    try {
+      if (editingPayment) {
+        await apiService.updatePayment(editingPayment.id, paymentData);
+      } else {
+        await apiService.createPayment(paymentData);
+      }
+      
+      await loadData();
+      setShowForm(false);
+      setEditingPayment(null);
+      
+      alert(`Payment ${editingPayment ? 'updated' : 'added'} successfully!`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : `Failed to ${editingPayment ? 'update' : 'add'} payment`;
+      setError(errorMessage);
+      alert(errorMessage);
+      console.error('Error saving payment:', err);
+    }
+  };
+
+  const handleMarkAsPaid = async (paymentId: string) => {
+    try {
+      const payment = payments.find(p => p.id === paymentId);
+      if (!payment) return;
+
+      await apiService.updatePayment(paymentId, {
+        ...payment,
+        status: 'paid',
+        paidDate: new Date().toISOString()
+      });
+      
+      await loadData();
+      alert('Payment marked as paid successfully!');
+    } catch (err) {
+      alert('Failed to update payment status');
+      console.error('Error updating payment:', err);
+    }
+  };
+
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setShowForm(true);
   };
 
   const getCurrencySymbol = (currency: string) => {
@@ -113,6 +100,7 @@ function Payments() {
     }
   };
 
+  // Calculate payment statistics
   const totalPending = payments
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + p.amount, 0);
@@ -125,8 +113,22 @@ function Payments() {
     .filter(p => p.status === 'paid')
     .reduce((sum, p) => sum + p.amount, 0);
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">Loading payments...</div>
+      </div>
+    );
+  }
+
   return (
     <div>
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-900">Payments</h1>
         <Button onClick={() => setShowForm(true)}>
@@ -142,7 +144,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Paid</p>
-              <p className="text-2xl font-semibold text-gray-900">${totalPaid}</p>
+              <p className="text-2xl font-semibold text-gray-900">${totalPaid.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -152,7 +154,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-yellow-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-semibold text-gray-900">${totalPending}</p>
+              <p className="text-2xl font-semibold text-gray-900">${totalPending.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -162,7 +164,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-red-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Overdue</p>
-              <p className="text-2xl font-semibold text-gray-900">${totalOverdue}</p>
+              <p className="text-2xl font-semibold text-gray-900">${totalOverdue.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -171,70 +173,101 @@ function Payments() {
       <div className="mt-6">
         {showForm ? (
           <div className="bg-white shadow-sm rounded-lg p-6">
-            <h2 className="text-lg font-medium mb-4">Add New Payment</h2>
+            <h2 className="text-lg font-medium mb-4">
+              {editingPayment ? 'Edit Payment' : 'Add New Payment'}
+            </h2>
             <PaymentForm
-              students={sampleStudents}
+              students={students}
               onSubmit={handleAddPayment}
-              onCancel={() => setShowForm(false)}
+              onCancel={() => {
+                setShowForm(false);
+                setEditingPayment(null);
+              }}
+              editingPayment={editingPayment}
             />
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Details</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{payment.studentName}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {getCurrencySymbol(payment.currency)}{payment.amount}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 capitalize">{payment.planType}</div>
-                      <div className="text-xs text-gray-500 capitalize">{payment.dayType} day</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {new Date(payment.dueDate).toLocaleDateString()}
-                      </div>
-                      {payment.paidDate && (
-                        <div className="text-xs text-gray-500">
-                          Paid: {new Date(payment.paidDate).toLocaleDateString()}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(payment.status)}`}>
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {payment.status !== 'paid' && (
-                        <Button 
-                          variant="secondary" 
-                          onClick={() => handleMarkAsPaid(payment.id)}
-                        >
-                          Mark as Paid
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {payments.length === 0 ? (
+              <div className="text-center py-12">
+                <DollarSign className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Payments Found</h3>
+                <p className="text-gray-500 mb-4">
+                  Payments are automatically generated when students are added.
+                </p>
+                <Button onClick={() => setShowForm(true)}>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Manual Payment
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Details</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {payments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{payment.studentName}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {getCurrencySymbol(payment.currency)}{payment.amount.toFixed(2)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 capitalize">{payment.planType}</div>
+                          <div className="text-xs text-gray-500 capitalize">{payment.dayType} day</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {new Date(payment.dueDate).toLocaleDateString()}
+                          </div>
+                          {payment.paidDate && (
+                            <div className="text-xs text-gray-500">
+                              Paid: {new Date(payment.paidDate).toLocaleDateString()}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(payment.status)}`}>
+                            {payment.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex space-x-2 justify-end">
+                            <button 
+                              onClick={() => handleEditPayment(payment)}
+                              className="text-indigo-600 hover:text-indigo-900 p-1"
+                              title="Edit Payment"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            {payment.status !== 'paid' && (
+                              <Button 
+                                variant="secondary" 
+                                onClick={() => handleMarkAsPaid(payment.id)}
+                              >
+                                Mark as Paid
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
