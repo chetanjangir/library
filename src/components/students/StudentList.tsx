@@ -92,12 +92,18 @@ function StudentList({ students, onEdit, onSendReminder }: StudentListProps) {
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  student.status === 'active' ? 'bg-green-100 text-green-800' : 
+                  student.status === 'active' ? 'bg-green-100 text-green-800' :
                   student.status === 'expired' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
+                  student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                  'bg-yellow-100 text-yellow-800'
                 }`}>
                   {student.status}
                 </span>
+                {isExpired(student.subscriptionEndDate) && student.status !== 'expired' && (
+                  <div className="text-xs text-red-600 mt-1">
+                    Subscription expired
+                  </div>
+                )}
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex space-x-1 justify-end">

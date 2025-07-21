@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       
       for (const student of students) {
         // Calculate monthly payment amount based on day type
-        const monthlyAmount = student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount;
+        const monthlyAmount = student.day_type === 'half' ? student.half_day_amount : student.full_day_amount;
         
         // Generate payment for current month
         const currentDate = new Date();
@@ -53,12 +53,12 @@ export default async function handler(req, res) {
         
         if (paymentDueDate < now) {
           if (subscriptionEndDate < now) {
-            paymentStatus = 'expired';
+            paymentStatus = 'overdue';
           } else {
             paymentStatus = 'overdue';
           }
         } else {
-          paymentStatus = 'due';
+          paymentStatus = 'pending';
         }
         
         // Check if payment already exists for this student and month
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
             if (updatedStatus !== existingPayment.status) {
               await paymentsCollection.updateOne(
                 { _id: existingPayment._id },
-                { $set: { status: updatedStatus, updated_at: new Date() } }
+                { $set: { status: updatedStatus, updatedAt: new Date() } }
               );
             }
           }
@@ -88,7 +88,11 @@ export default async function handler(req, res) {
             ...existingPayment,
             id: existingPayment._id.toString(),
             studentName: student.name,
+            studentId: student._id.toString(),
             status: updatedStatus,
+            currency: student.currency,
+            planType: student.plan_type,
+            dayType: student.day_type,
             _id: undefined
           });
         } else {
@@ -100,8 +104,8 @@ export default async function handler(req, res) {
             currency: student.currency,
             dueDate: paymentDueDate.toISOString(),
             status: paymentStatus,
-            planType: student.planType,
-            dayType: student.dayType,
+            planType: student.plan_type,
+            dayType: student.day_type,
             createdAt: new Date(),
             updatedAt: new Date()
           };
@@ -164,6 +168,9 @@ export default async function handler(req, res) {
       if (updateData.paidDate) {
         updateDoc.paidDate = new Date(updateData.paidDate);
       }
+      if (updateData.dueDate) {
+        updateDoc.dueDate = new Date(updateData.dueDate);
+      }
 
       await paymentsCollection.updateOne(
         { _id: new ObjectId(id) },
@@ -181,6 +188,18 @@ export default async function handler(req, res) {
       return res.status(200).json(responsePayment);
     }
 
+    if (req.method === 'DELETE') {
+      const { id } = req.body;
+      
+      if (!id) {
+        return res.status(400).json({ error: 'Payment ID is required for deletion' });
+      }
+
+      console.log('Deleting payment:', id);
+      const { ObjectId } = await import('mongodb');
+      await paymentsCollection.deleteOne({ _id: new ObjectId(id) });
+      return res.status(200).json({ message: 'Payment deleted successfully' });
+    }
     return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (error) {

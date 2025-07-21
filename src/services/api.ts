@@ -95,6 +95,13 @@ class ApiService {
     });
   }
 
+  async deletePayment(id: string) {
+    return this.request('/payments', {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+  }
+
   // Seats API
   async getSeats() {
     try {

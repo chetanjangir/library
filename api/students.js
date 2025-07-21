@@ -29,9 +29,44 @@ export default async function handler(req, res) {
       const students = await collection.find({}).toArray();
       console.log(`Found ${students.length} students`);
       
+      // Update student status based on subscription end date
+      const now = new Date();
+      for (const student of students) {
+        const endDate = new Date(student.subscription_end_date);
+        let newStatus = student.status;
+        
+        if (endDate < now) {
+          newStatus = 'expired';
+        } else if (student.status === 'expired' && endDate > now) {
+          newStatus = 'active';
+        }
+        
+        // Update status in database if changed
+        if (newStatus !== student.status) {
+          await collection.updateOne(
+            { _id: student._id },
+            { $set: { status: newStatus, updated_at: new Date() } }
+          );
+          student.status = newStatus;
+        }
+      }
+      
       const responseStudents = students.map(student => ({
-        ...student,
         id: student._id.toString(),
+        name: student.name,
+        email: student.email,
+        mobile: student.mobile,
+        joinDate: student.join_date || student.joinDate,
+        planType: student.plan_type || student.planType,
+        dayType: student.day_type || student.dayType,
+        halfDaySlot: student.half_day_slot || student.halfDaySlot,
+        status: student.status,
+        seatNumber: student.seat_number || student.seatNumber,
+        subscriptionEndDate: student.subscription_end_date || student.subscriptionEndDate,
+        currency: student.currency,
+        monthlyAmount: student.monthly_amount || student.monthlyAmount,
+        halfDayAmount: student.half_day_amount || student.halfDayAmount,
+        fullDayAmount: student.full_day_amount || student.fullDayAmount,
         _id: undefined
       }));
       
@@ -42,11 +77,22 @@ export default async function handler(req, res) {
       console.log('Creating new student:', req.body.name);
       
       const studentData = {
-        ...req.body,
-        joinDate: new Date(req.body.joinDate || new Date()),
-        subscriptionEndDate: new Date(req.body.subscriptionEndDate),
-        createdAt: new Date(),
-        updatedAt: new Date()
+        name: req.body.name,
+        email: req.body.email,
+        mobile: req.body.mobile,
+        join_date: new Date(req.body.joinDate || new Date()),
+        plan_type: req.body.planType,
+        day_type: req.body.dayType,
+        half_day_slot: req.body.halfDaySlot,
+        status: req.body.status || 'active',
+        seat_number: req.body.seatNumber,
+        subscription_end_date: new Date(req.body.subscriptionEndDate),
+        currency: req.body.currency,
+        monthly_amount: req.body.monthlyAmount,
+        half_day_amount: req.body.halfDayAmount,
+        full_day_amount: req.body.fullDayAmount,
+        created_at: new Date(),
+        updated_at: new Date()
       };
 
       const result = await collection.insertOne(studentData);
@@ -55,15 +101,28 @@ export default async function handler(req, res) {
       const newStudent = await collection.findOne({ _id: result.insertedId });
       
       const responseStudent = {
-        ...newStudent,
         id: newStudent._id.toString(),
+        name: newStudent.name,
+        email: newStudent.email,
+        mobile: newStudent.mobile,
+        joinDate: newStudent.join_date,
+        planType: newStudent.plan_type,
+        dayType: newStudent.day_type,
+        halfDaySlot: newStudent.half_day_slot,
+        status: newStudent.status,
+        seatNumber: newStudent.seat_number,
+        subscriptionEndDate: newStudent.subscription_end_date,
+        currency: newStudent.currency,
+        monthlyAmount: newStudent.monthly_amount,
+        halfDayAmount: newStudent.half_day_amount,
+        fullDayAmount: newStudent.full_day_amount,
         _id: undefined
       };
 
       // Log WhatsApp message (simulated)
-      if (studentData.mobile) {
-        console.log(`WhatsApp message would be sent to ${studentData.mobile}:`);
-        console.log(`Welcome ${studentData.name}! Your seat ${studentData.seatNumber || 'TBD'} is ready. WiFi: LibraryWiFi, Password: library123`);
+      if (newStudent.mobile) {
+        console.log(`WhatsApp message would be sent to ${newStudent.mobile}:`);
+        console.log(`Welcome ${newStudent.name}! Your seat ${newStudent.seat_number || 'TBD'} is ready. WiFi: LibraryWiFi, Password: library123`);
       }
 
       return res.status(201).json(responseStudent);
@@ -80,9 +139,20 @@ export default async function handler(req, res) {
 
       const { ObjectId } = await import('mongodb');
       const updateDoc = {
-        ...updateData,
-        subscriptionEndDate: new Date(updateData.subscriptionEndDate),
-        updatedAt: new Date()
+        name: updateData.name,
+        email: updateData.email,
+        mobile: updateData.mobile,
+        plan_type: updateData.planType,
+        day_type: updateData.dayType,
+        half_day_slot: updateData.halfDaySlot,
+        status: updateData.status,
+        seat_number: updateData.seatNumber,
+        subscription_end_date: new Date(updateData.subscriptionEndDate),
+        currency: updateData.currency,
+        monthly_amount: updateData.monthlyAmount,
+        half_day_amount: updateData.halfDayAmount,
+        full_day_amount: updateData.fullDayAmount,
+        updated_at: new Date()
       };
 
       await collection.updateOne(
@@ -93,8 +163,21 @@ export default async function handler(req, res) {
       const updatedStudent = await collection.findOne({ _id: new ObjectId(id) });
       
       const responseStudent = {
-        ...updatedStudent,
         id: updatedStudent._id.toString(),
+        name: updatedStudent.name,
+        email: updatedStudent.email,
+        mobile: updatedStudent.mobile,
+        joinDate: updatedStudent.join_date,
+        planType: updatedStudent.plan_type,
+        dayType: updatedStudent.day_type,
+        halfDaySlot: updatedStudent.half_day_slot,
+        status: updatedStudent.status,
+        seatNumber: updatedStudent.seat_number,
+        subscriptionEndDate: updatedStudent.subscription_end_date,
+        currency: updatedStudent.currency,
+        monthlyAmount: updatedStudent.monthly_amount,
+        halfDayAmount: updatedStudent.half_day_amount,
+        fullDayAmount: updatedStudent.full_day_amount,
         _id: undefined
       };
 

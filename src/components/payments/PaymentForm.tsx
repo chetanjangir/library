@@ -42,7 +42,13 @@ function PaymentForm({ students, onSubmit, onCancel, editingPayment }: PaymentFo
     if (!selectedStudent) return;
 
     const paymentData = {
-      ...formData,
+      studentId: formData.studentId,
+      amount: formData.amount,
+      currency: formData.currency,
+      dueDate: formData.dueDate,
+      planType: formData.planType,
+      dayType: formData.dayType,
+      status: formData.status,
       studentName: selectedStudent.name,
       paidDate: formData.status === 'paid' && formData.paidDate ? formData.paidDate : undefined,
     };
