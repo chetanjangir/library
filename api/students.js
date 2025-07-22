@@ -105,6 +105,36 @@ export default async function handler(req, res) {
         updated_at: new Date()
       };
 
+      // Check if seat is already occupied (if seat number provided)
+      if (studentData.seat_number) {
+        const existingSeat = await collection.findOne({ 
+          seat_number: studentData.seat_number, 
+          status: { $in: ['active', 'expired'] }
+        });
+        
+        if (existingSeat) {
+          // For half day, check if slot is available
+          if (studentData.day_type === 'half') {
+            const sameSlot = await collection.findOne({
+              seat_number: studentData.seat_number,
+              day_type: 'half',
+              half_day_slot: studentData.half_day_slot,
+              status: { $in: ['active', 'expired'] }
+            });
+            
+            if (sameSlot) {
+              return res.status(400).json({ 
+                error: `Seat ${studentData.seat_number} ${studentData.half_day_slot} slot is already occupied` 
+              });
+            }
+          } else {
+            // Full day seat is occupied
+            return res.status(400).json({ 
+              error: `Seat ${studentData.seat_number} is already occupied` 
+            });
+          }
+        }
+      }
       const result = await collection.insertOne(studentData);
       console.log('Student created with ID:', result.insertedId);
       
@@ -153,6 +183,44 @@ export default async function handler(req, res) {
       console.log('Updating student:', id);
 
       const { ObjectId } = await import('mongodb');
+      
+      // Get current student data
+      const currentStudent = await collection.findOne({ _id: new ObjectId(id) });
+      if (!currentStudent) {
+        return res.status(404).json({ error: 'Student not found' });
+      }
+      
+      // Check seat availability if seat number is being changed
+      if (updateData.seatNumber && updateData.seatNumber !== currentStudent.seat_number) {
+        const existingSeat = await collection.findOne({ 
+          seat_number: updateData.seatNumber, 
+          status: { $in: ['active', 'expired'] },
+          _id: { $ne: new ObjectId(id) }
+        });
+        
+        if (existingSeat) {
+          if (updateData.dayType === 'half') {
+            const sameSlot = await collection.findOne({
+              seat_number: updateData.seatNumber,
+              day_type: 'half',
+              half_day_slot: updateData.halfDaySlot,
+              status: { $in: ['active', 'expired'] },
+              _id: { $ne: new ObjectId(id) }
+            });
+            
+            if (sameSlot) {
+              return res.status(400).json({ 
+                error: `Seat ${updateData.seatNumber} ${updateData.halfDaySlot} slot is already occupied` 
+              });
+            }
+          } else {
+            return res.status(400).json({ 
+              error: `Seat ${updateData.seatNumber} is already occupied` 
+            });
+          }
+        }
+      }
+      
       const updateDoc = {
         name: updateData.name,
         email: updateData.email,
@@ -163,7 +231,7 @@ export default async function handler(req, res) {
         day_type: updateData.dayType,
         half_day_slot: updateData.halfDaySlot,
         status: updateData.status,
-        seat_number: updateData.seatNumber,
+        seat_number: updateData.seatNumber || null,
         subscription_end_date: new Date(updateData.subscriptionEndDate),
         currency: updateData.currency,
         monthly_amount: updateData.monthlyAmount,
@@ -175,6 +243,12 @@ export default async function handler(req, res) {
         updated_at: new Date()
       };
 
+      // Remove undefined values
+      Object.keys(updateDoc).forEach(key => {
+        if (updateDoc[key] === undefined) {
+          delete updateDoc[key];
+        }
+      });
       await collection.updateOne(
         { _id: new ObjectId(id) },
         { $set: updateDoc }
@@ -218,7 +292,16 @@ export default async function handler(req, res) {
 
       console.log('Deleting student:', id);
       const { ObjectId } = await import('mongodb');
+      
+      // Get student data before deletion for logging
+      const studentToDelete = await collection.findOne({ _id: new ObjectId(id) });
+      if (!studentToDelete) {
+        return res.status(404).json({ error: 'Student not found' });
+      }
+      
       await collection.deleteOne({ _id: new ObjectId(id) });
+      
+      console.log(`Student ${studentToDelete.name} deleted, seat ${studentToDelete.seat_number} is now vacant`);
       return res.status(200).json({ message: 'Student deleted successfully' });
     }
 

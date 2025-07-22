@@ -16,8 +16,10 @@ export default async function handler(req, res) {
     const studentsCollection = db.collection('students');
 
     if (req.method === 'GET') {
-      // Get all students to determine seat occupancy
-      const students = await studentsCollection.find({}).toArray();
+      // Get only active students to determine seat occupancy
+      const students = await studentsCollection.find({ 
+        status: { $in: ['active', 'expired'] }
+      }).toArray();
       
       // Create seat map
       const seats = [];
@@ -29,15 +31,24 @@ export default async function handler(req, res) {
         };
 
         // Check if this seat is occupied
-        const fullDayStudent = students.find(s => s.seatNumber === i && s.dayType === 'full');
-        const halfDayStudents = students.filter(s => s.seatNumber === i && s.dayType === 'half');
+        const fullDayStudent = students.find(s => s.seat_number === i && s.day_type === 'full');
+        const halfDayStudents = students.filter(s => s.seat_number === i && s.day_type === 'half');
 
         if (fullDayStudent) {
           seat.isOccupied = true;
           seat.type = 'full';
           seat.student = {
             ...fullDayStudent,
-            id: fullDayStudent._id.toString()
+            id: fullDayStudent._id.toString(),
+            name: fullDayStudent.name,
+            email: fullDayStudent.email,
+            mobile: fullDayStudent.mobile,
+            planType: fullDayStudent.plan_type,
+            dayType: fullDayStudent.day_type,
+            status: fullDayStudent.status,
+            seatNumber: fullDayStudent.seat_number,
+            currency: fullDayStudent.currency,
+            _id: undefined
           };
         } else if (halfDayStudents.length > 0) {
           seat.isOccupied = true;
@@ -47,11 +58,21 @@ export default async function handler(req, res) {
           halfDayStudents.forEach(student => {
             const studentData = {
               ...student,
-              id: student._id.toString()
+              id: student._id.toString(),
+              name: student.name,
+              email: student.email,
+              mobile: student.mobile,
+              planType: student.plan_type,
+              dayType: student.day_type,
+              halfDaySlot: student.half_day_slot,
+              status: student.status,
+              seatNumber: student.seat_number,
+              currency: student.currency,
+              _id: undefined
             };
-            if (student.halfDaySlot === 'morning') {
+            if (student.half_day_slot === 'morning') {
               seat.halfDayStudents.morning = studentData;
-            } else if (student.halfDaySlot === 'evening') {
+            } else if (student.half_day_slot === 'evening') {
               seat.halfDayStudents.evening = studentData;
             }
           });

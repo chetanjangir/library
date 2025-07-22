@@ -187,7 +187,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-yellow-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Due</p>
-              <p className="text-2xl font-semibold text-gray-900">{(totalPending || 0).toFixed(2)}</p>
+              <p className="text-2xl font-semibold text-gray-900">${(totalPending || 0).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -197,7 +197,7 @@ function Payments() {
             <DollarSign className="w-8 h-8 text-red-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Overdue</p>
-              <p className="text-2xl font-semibold text-gray-900">{(totalOverdue || 0).toFixed(2)}</p>
+              <p className="text-2xl font-semibold text-gray-900">${(totalOverdue || 0).toFixed(2)}</p>
             </div>
           </div>
         </div>

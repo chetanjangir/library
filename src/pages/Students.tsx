@@ -98,6 +98,65 @@ function Students() {
       console.error('Error deleting student:', err);
     }
   };
+
+  const handleUpdateBalance = async (student: Student, amount: number) => {
+    try {
+      const newPaidAmount = (student.paidAmount || 0) + amount;
+      const totalAmount = student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount;
+      const newBalanceAmount = Math.max(0, totalAmount - newPaidAmount);
+      
+      let newPaymentStatus: 'paid' | 'due' | 'partial' = 'due';
+      if (newPaidAmount >= totalAmount) {
+        newPaymentStatus = 'paid';
+      } else if (newPaidAmount > 0) {
+        newPaymentStatus = 'partial';
+      }
+
+      const updateData = {
+        ...student,
+        paidAmount: newPaidAmount,
+        balanceAmount: newBalanceAmount,
+        paymentStatus: newPaymentStatus
+      };
+
+      await apiService.updateStudent(student.id, updateData);
+      await loadStudents();
+      alert(`Balance of ${getCurrencySymbol(student.currency)}${amount} added successfully!`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update balance';
+      setError(errorMessage);
+      alert(errorMessage);
+      console.error('Error updating balance:', err);
+    }
+  };
+
+  const handleUpdateStatus = async (student: Student, newStatus: 'active' | 'inactive' | 'expired') => {
+    try {
+      const updateData = {
+        ...student,
+        status: newStatus
+      };
+
+      await apiService.updateStudent(student.id, updateData);
+      await loadStudents();
+      
+      if (newStatus === 'inactive') {
+        alert(`Student ${student.name} marked as inactive. Seat ${student.seatNumber || 'N/A'} is now available.`);
+      } else {
+        alert(`Student ${student.name} status updated to ${newStatus}.`);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update status';
+      setError(errorMessage);
+      alert(errorMessage);
+      console.error('Error updating status:', err);
+    }
+  };
+
+  const getCurrencySymbol = (currency: string) => {
+    const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
+    return symbols[currency as keyof typeof symbols] || currency;
+  };
   const handleSendReminder = async (student: Student) => {
     try {
       await apiService.sendPaymentReminder(
@@ -259,6 +318,8 @@ function Students() {
               onEdit={handleEditStudent}
               onSendReminder={handleSendReminder}
               onDelete={handleDeleteStudent}
+              onUpdateBalance={handleUpdateBalance}
+              onUpdateStatus={handleUpdateStatus}
             />
           </div>
         )}

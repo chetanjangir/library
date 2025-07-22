@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, MessageCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { Edit, MessageCircle, AlertTriangle, Trash2, DollarSign, UserCheck } from 'lucide-react';
 import type { Student } from '../../types';
 import Button from '../ui/Button';
 
@@ -8,9 +8,14 @@ interface StudentListProps {
   onEdit: (student: Student) => void;
   onSendReminder: (student: Student) => void;
   onDelete: (student: Student) => void;
+  onUpdateBalance: (student: Student, amount: number) => void;
+  onUpdateStatus: (student: Student, status: 'active' | 'inactive' | 'expired') => void;
 }
 
-function StudentList({ students, onEdit, onSendReminder, onDelete }: StudentListProps) {
+function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus }: StudentListProps) {
+  const [balanceInputs, setBalanceInputs] = React.useState<{[key: string]: string}>({});
+  const [statusUpdates, setStatusUpdates] = React.useState<{[key: string]: string}>({});
+
   const getCurrencySymbol = (currency: string) => {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
     return symbols[currency as keyof typeof symbols] || currency;
@@ -45,25 +50,43 @@ function StudentList({ students, onEdit, onSendReminder, onDelete }: StudentList
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const handleBalanceUpdate = (student: Student) => {
+    const amount = parseFloat(balanceInputs[student.id] || '0');
+    if (amount > 0) {
+      onUpdateBalance(student, amount);
+      setBalanceInputs(prev => ({ ...prev, [student.id]: '' }));
+    }
+  };
+
+  const handleStatusUpdate = (student: Student, newStatus: string) => {
+    onUpdateStatus(student, newStatus as 'active' | 'inactive' | 'expired');
+  };
+
   return (
     <div className="overflow-x-auto -mx-4 sm:mx-0">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Contact</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seat</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Plan</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Add Balance</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Subscription</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {sortedStudents.map((student) => (
+          {sortedStudents.map((student, index) => (
             <tr key={student.id} className={isExpired(student.subscriptionEndDate) ? 'bg-red-50' : isExpiringSoon(student.subscriptionEndDate) ? 'bg-yellow-50' : ''}>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                {index + 1}
+              </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                 <div>
                   <div className="text-sm font-medium text-gray-900 truncate max-w-32 sm:max-w-none">{student.name}</div>
@@ -106,6 +129,27 @@ function StudentList({ students, onEdit, onSendReminder, onDelete }: StudentList
                   </div>
                 )}
               </td>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                <div className="flex items-center space-x-1">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Amount"
+                    className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    value={balanceInputs[student.id] || ''}
+                    onChange={(e) => setBalanceInputs(prev => ({ ...prev, [student.id]: e.target.value }))}
+                  />
+                  <button
+                    onClick={() => handleBalanceUpdate(student)}
+                    className="p-1 text-green-600 hover:text-green-800"
+                    title="Add Balance"
+                    disabled={!balanceInputs[student.id] || parseFloat(balanceInputs[student.id]) <= 0}
+                  >
+                    <DollarSign className="w-4 h-4" />
+                  </button>
+                </div>
+              </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                 <div className="text-sm text-gray-900">
                   Expires: {new Date(student.subscriptionEndDate).toLocaleDateString()}
@@ -124,14 +168,20 @@ function StudentList({ students, onEdit, onSendReminder, onDelete }: StudentList
                 )}
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  student.status === 'active' ? 'bg-green-100 text-green-800' :
-                  student.status === 'expired' ? 'bg-red-100 text-red-800' :
-                  student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {student.status}
-                </span>
+                <select
+                  className={`px-2 py-1 text-xs font-semibold rounded border-0 ${
+                    student.status === 'active' ? 'bg-green-100 text-green-800' :
+                    student.status === 'expired' ? 'bg-red-100 text-red-800' :
+                    student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}
+                  value={student.status}
+                  onChange={(e) => handleStatusUpdate(student, e.target.value)}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="expired">Expired</option>
+                </select>
                 {isExpired(student.subscriptionEndDate) && student.status !== 'expired' && (
                   <div className="text-xs text-red-600 mt-1">
                     Subscription expired
