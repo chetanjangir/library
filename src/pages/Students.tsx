@@ -35,6 +35,7 @@ function Students() {
       }
     }
   }, []);
+  
   const loadStudents = async () => {
     try {
       setLoading(true);
@@ -67,13 +68,24 @@ function Students() {
         // Send welcome message if auto-welcome is enabled
         if (finalStudentData.mobile) {
           try {
-            const result = await apiService.sendWhatsAppMessage(
-              finalStudentData.mobile,
-              `Welcome ${finalStudentData.name}! Your library seat ${finalStudentData.seatNumber || 'TBD'} is ready.`,
-              'welcome'
-            );
-            if (result.success) {
-              console.log('Welcome message sent successfully');
+            const response = await fetch('/api/whatsapp', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                type: 'welcome',
+                mobile: finalStudentData.mobile,
+                studentName: finalStudentData.name,
+                seatNumber: finalStudentData.seatNumber,
+                wifiSSID: undefined, // Will use default from settings
+                wifiPassword: undefined // Will use default from settings
+              })
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              console.log('Welcome message sent:', result.success);
             }
           } catch (error) {
             console.error('Failed to send welcome message:', error);
@@ -87,7 +99,7 @@ function Students() {
       setPrefilledSeatNumber(undefined);
       
       // Show success message
-      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully!${finalStudentData.mobile ? ' WhatsApp message sent with seat allocation and WiFi details.' : ''}`);
+      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully!${finalStudentData.mobile ? ' WhatsApp welcome message sent.' : ''}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `Failed to ${editingStudent ? 'update' : 'add'} student`;
       setError(errorMessage);
@@ -173,15 +185,34 @@ function Students() {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
     return symbols[currency as keyof typeof symbols] || currency;
   };
+  
   const handleSendReminder = async (student: Student) => {
     try {
-      await apiService.sendPaymentReminder(
-        student.mobile,
-        student.name,
-        student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount,
-        new Date(student.subscriptionEndDate).toLocaleDateString()
-      );
-      alert(`Payment reminder sent to ${student.name}`);
+      const response = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'reminder',
+          mobile: student.mobile,
+          studentName: student.name,
+          amount: student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount,
+          currency: student.currency,
+          dueDate: new Date(student.subscriptionEndDate).toLocaleDateString()
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          alert(`Payment reminder sent to ${student.name}`);
+        } else {
+          alert(`Failed to send reminder: ${result.error}`);
+        }
+      } else {
+        alert('Failed to send reminder');
+      }
     } catch (err) {
       alert('Failed to send reminder');
       console.error('Error sending reminder:', err);

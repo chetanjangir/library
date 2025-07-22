@@ -126,44 +126,59 @@ class ApiService {
   // WhatsApp API
   async sendWhatsAppMessage(mobile: string, message: string, type = 'welcome') {
     try {
-      const { whatsappService } = await import('./whatsappService');
-      await whatsappService.refreshSettings();
-      
-      if (type === 'welcome') {
-        const success = await whatsappService.sendWelcomeMessage(
-          'Student', // This should be the actual student name
-          mobile,
-          undefined, // seat number
-          'LibraryWiFi',
-          'library123'
-        );
-        return { success, message: success ? 'Welcome message sent' : 'Failed to send welcome message' };
+      // Use our API endpoint for WhatsApp messages
+      const response = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: type,
+          mobile: mobile,
+          studentName: 'Student', // This should be passed as parameter
+          message: message
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return { success: result.success, message: result.message || 'WhatsApp message sent' };
       } else {
-        // For other message types, use the existing logic
-        console.log('WhatsApp message:', { mobile, message, type });
-        return { success: true, message: 'WhatsApp message sent (simulated)' };
+        const error = await response.json();
+        return { success: false, error: error.error || 'Failed to send WhatsApp message' };
       }
     } catch (error) {
       console.error('Failed to send WhatsApp message:', error);
-      // Don't throw error for WhatsApp failures
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
   async sendPaymentReminder(mobile: string, name: string, amount: number, dueDate: string) {
     try {
-      const { whatsappService } = await import('./whatsappService');
-      await whatsappService.refreshSettings();
-      
-      const success = await whatsappService.sendPaymentReminder(
-        name,
-        mobile,
-        amount,
-        'INR', // Default currency, should be passed from student data
-        dueDate
-      );
-      return { success, message: success ? 'Payment reminder sent' : 'Failed to send payment reminder' };
+      const response = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'reminder',
+          mobile: mobile,
+          studentName: name,
+          amount: amount,
+          currency: 'INR',
+          dueDate: dueDate
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return { success: result.success, message: result.message || 'Payment reminder sent' };
+      } else {
+        const error = await response.json();
+        return { success: false, error: error.error || 'Failed to send payment reminder' };
+      }
     } catch (error) {
+      console.error('Failed to send payment reminder:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }

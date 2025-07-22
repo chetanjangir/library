@@ -155,35 +155,29 @@ class WhatsAppService {
 
   private async sendTemplateMessage(mobile: string, template: WhatsAppTemplate): Promise<boolean> {
     try {
-      const formattedMobile = this.formatMobileNumber(mobile);
-      
-      const payload: WhatsAppPayload = {
-        from: this.config.senderNumber,
-        to: formattedMobile,
-        body: template.templateBody,
-        templateId: template.templateId,
-        message: {
-          variables: template.variables
-        }
-      };
-
-      console.log('Sending WhatsApp message:', payload);
-
-      const response = await fetch(`${this.config.basicUrl}/template/send`, {
+      // Use our API endpoint instead of direct Airtel API call
+      const response = await fetch('/api/whatsapp', {
         method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: template.templateId === this.config.welcomeTemplateId ? 'welcome' : 'reminder',
+          mobile: mobile,
+          studentName: template.variables[0] || 'Student',
+          amount: template.templateId === this.config.reminderTemplateId ? parseFloat(template.variables[2] || '0') : undefined,
+          currency: 'INR',
+          dueDate: template.variables[3] || new Date().toLocaleDateString(),
+          seatNumber: template.variables[1] || undefined,
+          wifiSSID: template.variables[2] || undefined,
+          wifiPassword: template.variables[3] || undefined
+        })
       });
 
       if (response.ok) {
         const result = await response.json();
         console.log('WhatsApp message sent successfully:', result);
-        
-        // Log the message for debugging
-        const finalMessage = this.replaceVariables(template.templateBody, template.variables);
-        console.log('Final message:', finalMessage);
-        
-        return true;
+        return result.success;
       } else {
         const error = await response.json();
         console.error('WhatsApp message failed:', error);
