@@ -10,6 +10,7 @@ function Students() {
   const [students, setStudents] = useState<Student[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [prefilledSeatNumber, setPrefilledSeatNumber] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +21,20 @@ function Students() {
     loadStudents();
   }, []);
 
+  // Check for seat number from URL params
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const seatParam = urlParams.get('seat');
+    if (seatParam) {
+      const seatNumber = parseInt(seatParam);
+      if (seatNumber >= 1 && seatNumber <= 100) {
+        setPrefilledSeatNumber(seatNumber);
+        setShowForm(true);
+        // Clear the URL parameter
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, []);
   const loadStudents = async () => {
     try {
       setLoading(true);
@@ -38,18 +53,25 @@ function Students() {
 
   const handleAddStudent = async (studentData: Omit<Student, 'id'>) => {
     try {
+      // Add prefilled seat number if available
+      const finalStudentData = {
+        ...studentData,
+        seatNumber: prefilledSeatNumber || studentData.seatNumber
+      };
+      
       if (editingStudent) {
-        await apiService.updateStudent(editingStudent.id, studentData);
+        await apiService.updateStudent(editingStudent.id, finalStudentData);
       } else {
-        await apiService.createStudent(studentData);
+        await apiService.createStudent(finalStudentData);
       }
       
       await loadStudents();
       setShowForm(false);
       setEditingStudent(null);
+      setPrefilledSeatNumber(undefined);
       
       // Show success message
-      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully!${studentData.mobile ? ' WhatsApp message sent with seat allocation and WiFi details.' : ''}`);
+      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully!${finalStudentData.mobile ? ' WhatsApp message sent with seat allocation and WiFi details.' : ''}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `Failed to ${editingStudent ? 'update' : 'add'} student`;
       setError(errorMessage);
@@ -60,9 +82,22 @@ function Students() {
 
   const handleEditStudent = (student: Student) => {
     setEditingStudent(student);
+    setPrefilledSeatNumber(undefined);
     setShowForm(true);
   };
 
+  const handleDeleteStudent = async (student: Student) => {
+    try {
+      await apiService.deleteStudent(student.id);
+      await loadStudents();
+      alert(`Student ${student.name} deleted successfully!`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete student';
+      setError(errorMessage);
+      alert(errorMessage);
+      console.error('Error deleting student:', err);
+    }
+  };
   const handleSendReminder = async (student: Student) => {
     try {
       await apiService.sendPaymentReminder(
@@ -182,14 +217,21 @@ function Students() {
           <div className="bg-white shadow-sm rounded-lg p-6">
             <h2 className="text-lg font-medium mb-4">
               {editingStudent ? 'Edit Student' : 'Add New Student'}
+              {prefilledSeatNumber && (
+                <span className="text-sm text-gray-600 ml-2">
+                  (Seat {prefilledSeatNumber} selected)
+                </span>
+              )}
             </h2>
             <StudentForm
               onSubmit={handleAddStudent}
               onCancel={() => {
                 setShowForm(false);
                 setEditingStudent(null);
+                setPrefilledSeatNumber(undefined);
               }}
               editingStudent={editingStudent}
+              prefilledSeatNumber={prefilledSeatNumber}
             />
           </div>
         ) : (
@@ -216,6 +258,7 @@ function Students() {
               students={filteredStudents} 
               onEdit={handleEditStudent}
               onSendReminder={handleSendReminder}
+              onDelete={handleDeleteStudent}
             />
           </div>
         )}

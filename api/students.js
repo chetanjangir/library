@@ -57,6 +57,8 @@ export default async function handler(req, res) {
         email: student.email,
         mobile: student.mobile,
         joinDate: student.join_date || student.joinDate,
+        startDate: student.start_date || student.join_date || student.joinDate,
+        endDate: student.end_date,
         planType: student.plan_type || student.planType,
         dayType: student.day_type || student.dayType,
         halfDaySlot: student.half_day_slot || student.halfDaySlot,
@@ -67,6 +69,9 @@ export default async function handler(req, res) {
         monthlyAmount: student.monthly_amount || student.monthlyAmount,
         halfDayAmount: student.half_day_amount || student.halfDayAmount,
         fullDayAmount: student.full_day_amount || student.fullDayAmount,
+        paymentStatus: student.payment_status || student.paymentStatus || 'due',
+        paidAmount: student.paid_amount || student.paidAmount || 0,
+        balanceAmount: student.balance_amount || student.balanceAmount || 0,
         _id: undefined
       }));
       
@@ -80,7 +85,9 @@ export default async function handler(req, res) {
         name: req.body.name,
         email: req.body.email,
         mobile: req.body.mobile,
-        join_date: new Date(req.body.joinDate || new Date()),
+        join_date: new Date(req.body.startDate || req.body.joinDate || new Date()),
+        start_date: new Date(req.body.startDate || req.body.joinDate || new Date()),
+        end_date: req.body.endDate ? new Date(req.body.endDate) : null,
         plan_type: req.body.planType,
         day_type: req.body.dayType,
         half_day_slot: req.body.halfDaySlot,
@@ -91,6 +98,9 @@ export default async function handler(req, res) {
         monthly_amount: req.body.monthlyAmount,
         half_day_amount: req.body.halfDayAmount,
         full_day_amount: req.body.fullDayAmount,
+        payment_status: req.body.paymentStatus || 'due',
+        paid_amount: req.body.paidAmount || 0,
+        balance_amount: req.body.balanceAmount || 0,
         created_at: new Date(),
         updated_at: new Date()
       };
@@ -106,6 +116,8 @@ export default async function handler(req, res) {
         email: newStudent.email,
         mobile: newStudent.mobile,
         joinDate: newStudent.join_date,
+        startDate: newStudent.start_date,
+        endDate: newStudent.end_date,
         planType: newStudent.plan_type,
         dayType: newStudent.day_type,
         halfDaySlot: newStudent.half_day_slot,
@@ -116,6 +128,9 @@ export default async function handler(req, res) {
         monthlyAmount: newStudent.monthly_amount,
         halfDayAmount: newStudent.half_day_amount,
         fullDayAmount: newStudent.full_day_amount,
+        paymentStatus: newStudent.payment_status,
+        paidAmount: newStudent.paid_amount,
+        balanceAmount: newStudent.balance_amount,
         _id: undefined
       };
 
@@ -142,6 +157,8 @@ export default async function handler(req, res) {
         name: updateData.name,
         email: updateData.email,
         mobile: updateData.mobile,
+        start_date: updateData.startDate ? new Date(updateData.startDate) : undefined,
+        end_date: updateData.endDate ? new Date(updateData.endDate) : null,
         plan_type: updateData.planType,
         day_type: updateData.dayType,
         half_day_slot: updateData.halfDaySlot,
@@ -152,6 +169,9 @@ export default async function handler(req, res) {
         monthly_amount: updateData.monthlyAmount,
         half_day_amount: updateData.halfDayAmount,
         full_day_amount: updateData.fullDayAmount,
+        payment_status: updateData.paymentStatus,
+        paid_amount: updateData.paidAmount,
+        balance_amount: updateData.balanceAmount,
         updated_at: new Date()
       };
 
@@ -168,6 +188,8 @@ export default async function handler(req, res) {
         email: updatedStudent.email,
         mobile: updatedStudent.mobile,
         joinDate: updatedStudent.join_date,
+        startDate: updatedStudent.start_date,
+        endDate: updatedStudent.end_date,
         planType: updatedStudent.plan_type,
         dayType: updatedStudent.day_type,
         halfDaySlot: updatedStudent.half_day_slot,
@@ -178,6 +200,9 @@ export default async function handler(req, res) {
         monthlyAmount: updatedStudent.monthly_amount,
         halfDayAmount: updatedStudent.half_day_amount,
         fullDayAmount: updatedStudent.full_day_amount,
+        paymentStatus: updatedStudent.payment_status,
+        paidAmount: updatedStudent.paid_amount,
+        balanceAmount: updatedStudent.balance_amount,
         _id: undefined
       };
 

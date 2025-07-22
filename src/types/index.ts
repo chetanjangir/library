@@ -4,6 +4,8 @@ export interface Student {
   email: string;
   mobile: string;
   joinDate: string;
+  startDate: string;
+  endDate?: string;
   planType: 'daily' | 'monthly' | 'yearly';
   dayType: 'full' | 'half';
   halfDaySlot?: 'morning' | 'evening';
@@ -14,6 +16,9 @@ export interface Student {
   monthlyAmount: number;
   halfDayAmount: number;
   fullDayAmount: number;
+  paymentStatus?: 'paid' | 'due' | 'partial';
+  paidAmount?: number;
+  balanceAmount?: number;
 }
 
 export interface Payment {

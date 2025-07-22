@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Edit, MessageCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import type { Student } from '../../types';
 import Button from '../ui/Button';
 
@@ -7,9 +7,10 @@ interface StudentListProps {
   students: Student[];
   onEdit: (student: Student) => void;
   onSendReminder: (student: Student) => void;
+  onDelete: (student: Student) => void;
 }
 
-function StudentList({ students, onEdit, onSendReminder }: StudentListProps) {
+function StudentList({ students, onEdit, onSendReminder, onDelete }: StudentListProps) {
   const getCurrencySymbol = (currency: string) => {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
     return symbols[currency as keyof typeof symbols] || currency;
@@ -28,6 +29,22 @@ function StudentList({ students, onEdit, onSendReminder }: StudentListProps) {
     return end < now;
   };
 
+  // Sort students by seat number
+  const sortedStudents = [...students].sort((a, b) => {
+    if (!a.seatNumber && !b.seatNumber) return 0;
+    if (!a.seatNumber) return 1;
+    if (!b.seatNumber) return -1;
+    return a.seatNumber - b.seatNumber;
+  });
+
+  const getPaymentStatusColor = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case 'paid': return 'bg-green-100 text-green-800';
+      case 'partial': return 'bg-yellow-100 text-yellow-800';
+      case 'due': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
   return (
     <div className="overflow-x-auto -mx-4 sm:mx-0">
       <table className="min-w-full divide-y divide-gray-200">
@@ -38,13 +55,14 @@ function StudentList({ students, onEdit, onSendReminder }: StudentListProps) {
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seat</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Plan</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Subscription</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {students.map((student) => (
+          {sortedStudents.map((student) => (
             <tr key={student.id} className={isExpired(student.subscriptionEndDate) ? 'bg-red-50' : isExpiringSoon(student.subscriptionEndDate) ? 'bg-yellow-50' : ''}>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                 <div>
@@ -72,6 +90,21 @@ function StudentList({ students, onEdit, onSendReminder }: StudentListProps) {
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 {getCurrencySymbol(student.currency)}{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
+              </td>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(student.paymentStatus || 'due')}`}>
+                  {student.paymentStatus || 'due'}
+                </span>
+                {student.paymentStatus === 'partial' && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Paid: {getCurrencySymbol(student.currency)}{student.paidAmount || 0}
+                  </div>
+                )}
+                {student.balanceAmount && student.balanceAmount > 0 && (
+                  <div className="text-xs text-red-600 mt-1">
+                    Balance: {getCurrencySymbol(student.currency)}{student.balanceAmount}
+                  </div>
+                )}
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                 <div className="text-sm text-gray-900">
@@ -110,14 +143,27 @@ function StudentList({ students, onEdit, onSendReminder }: StudentListProps) {
                 <button 
                   onClick={() => onEdit(student)}
                   className="text-indigo-600 hover:text-indigo-900 p-1"
+                  title="Edit Student"
                 >
                   <Edit className="w-4 h-4" />
                 </button>
                 <button 
                   onClick={() => onSendReminder(student)}
                   className="text-green-600 hover:text-green-900 p-1"
+                  title="Send Reminder"
                 >
                   <MessageCircle className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete ${student.name}? This action cannot be undone.`)) {
+                      onDelete(student);
+                    }
+                  }}
+                  className="text-red-600 hover:text-red-900 p-1"
+                  title="Delete Student"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
                 </div>
               </td>

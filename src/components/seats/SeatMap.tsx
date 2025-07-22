@@ -1,14 +1,15 @@
 import React from 'react';
-import { User, Users } from 'lucide-react';
+import { User, Users, Plus } from 'lucide-react';
 import type { Seat, Student } from '../../types';
 
 interface SeatMapProps {
   seats: Seat[];
   onSeatClick: (seatId: number) => void;
+  onAddStudent?: (seatNumber: number) => void;
   onRefresh?: () => void;
 }
 
-function SeatMap({ seats, onSeatClick, onRefresh }: SeatMapProps) {
+function SeatMap({ seats, onSeatClick, onAddStudent, onRefresh }: SeatMapProps) {
   const getSeatColor = (seat: Seat) => {
     if (!seat.isOccupied) return 'bg-green-100 border-green-300 hover:bg-green-200';
     if (seat.type === 'half-shared') return 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200';
@@ -31,6 +32,18 @@ function SeatMap({ seats, onSeatClick, onRefresh }: SeatMapProps) {
     return seat.student?.name || 'Occupied';
   };
 
+  const handleSeatClick = (seat: Seat) => {
+    if (!seat.isOccupied && onAddStudent) {
+      // For vacant seats, show option to add student
+      const shouldAdd = confirm(`Add a new student to Seat ${seat.id}?`);
+      if (shouldAdd) {
+        onAddStudent(seat.id);
+      }
+    } else {
+      // For occupied seats, show details
+      onSeatClick(seat.id);
+    }
+  };
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex justify-between items-center mb-6">
@@ -56,25 +69,41 @@ function SeatMap({ seats, onSeatClick, onRefresh }: SeatMapProps) {
           <div
             key={seat.id}
             className={`
-              relative aspect-square border-2 rounded cursor-pointer transition-colors
+              relative aspect-square border-2 rounded cursor-pointer transition-all duration-200 hover:scale-105
               flex items-center justify-center text-xs font-medium min-h-[40px] sm:min-h-[50px]
               ${getSeatColor(seat)}
             `}
-            onClick={() => onSeatClick(seat.id)}
+            onClick={() => handleSeatClick(seat)}
             title={getSeatTooltip(seat)}
           >
             <div className="text-center">
-              <div className="flex justify-center mb-0.5 sm:mb-1">
-                {getSeatIcon(seat)}
+              <div className="flex justify-center mb-0.5 sm:mb-1 relative">
+                {!seat.isOccupied ? (
+                  <div className="opacity-0 hover:opacity-100 transition-opacity absolute -top-1 -right-1">
+                    <Plus className="w-3 h-3 text-green-600 bg-white rounded-full border border-green-600" />
+                  </div>
+                ) : (
+                  getSeatIcon(seat)
+                )}
               </div>
               <div className="text-xs">{seat.id}</div>
+              {seat.isOccupied && seat.student && (
+                <div className="text-[8px] text-gray-600 truncate max-w-[30px] mt-0.5">
+                  {seat.student.name.split(' ')[0]}
+                </div>
+              )}
+            </div>
+            
+            {/* Hover tooltip */}
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+              {getSeatTooltip(seat)}
             </div>
           </div>
         ))}
       </div>
       
       <div className="mt-2 sm:mt-4 text-xs text-gray-500">
-        Click on any seat to view details or assign a student
+        Click on vacant seats (green) to add students • Click on occupied seats to view details
       </div>
     </div>
   );
