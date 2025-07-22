@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Building, DollarSign, Bell, MessageCircle, Mail, Smartphone, Save } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { apiService } from '../services/api';
 
 interface LibrarySettings {
   name: string;
@@ -22,10 +23,26 @@ interface NotificationSettings {
   whatsappEnabled: boolean;
   emailEnabled: boolean;
   smsEnabled: boolean;
-  whatsappApiUrl: string;
-  whatsappToken: string;
+  autoWelcomeEnabled: boolean;
+  autoReminderEnabled: boolean;
+  reminderDaysBefore: number;
+  whatsappUsername: string;
+  whatsappSecret: string;
+  whatsappSenderNumber: string;
+  whatsappCustomerId: string;
+  whatsappWabaId: string;
+  whatsappSubAccountId: string;
+  whatsappBasicUrl: string;
+  whatsappContentUrl: string;
+  whatsappWelcomeTemplateId: string;
+  whatsappReminderTemplateId: string;
   emailApiKey: string;
   smsApiKey: string;
+}
+
+interface WifiDetails {
+  ssid: string;
+  password: string;
 }
 
 function Settings() {
@@ -33,16 +50,16 @@ function Settings() {
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings>({
     name: 'Central Library',
     address: '123 Main Street, City, State 12345',
-    phone: '+1 (555) 123-4567',
+    phone: '+91 98765 43210',
     email: 'info@centrallibrary.com',
     website: 'www.centrallibrary.com'
   });
 
   const [feeStructure, setFeeStructure] = useState<FeeStructure>({
-    monthlyFee: 100,
-    halfDayFee: 60,
-    fullDayFee: 100,
-    currency: 'USD',
+    monthlyFee: 1000,
+    halfDayFee: 600,
+    fullDayFee: 1000,
+    currency: 'INR',
     warningDays: 7
   });
 
@@ -50,22 +67,75 @@ function Settings() {
     whatsappEnabled: true,
     emailEnabled: false,
     smsEnabled: false,
-    whatsappApiUrl: 'https://graph.facebook.com/v17.0/YOUR_PHONE_NUMBER_ID/messages',
-    whatsappToken: 'your_permanent_access_token_here',
+    autoWelcomeEnabled: true,
+    autoReminderEnabled: true,
+    reminderDaysBefore: 7,
+    whatsappUsername: '',
+    whatsappSecret: '',
+    whatsappSenderNumber: '919315431037',
+    whatsappCustomerId: 'SALEASSIST_SKzeozJyiA96VM09HL4h',
+    whatsappWabaId: '105382835942086',
+    whatsappSubAccountId: 'd6ddb224-251b-4d50-9891-f6140aa5141b',
+    whatsappBasicUrl: 'https://iqwhatsapp.airtel.in:443/gateway/airtel-xchange/basic/whatsapp-manager/v1',
+    whatsappContentUrl: 'https://iqwhatsapp.airtel.in:443/gateway/airtel-xchange/whatsapp-content-manager/v1',
+    whatsappWelcomeTemplateId: '01k0scq4rbqeh6ch1jp4j33gd8',
+    whatsappReminderTemplateId: 'payment_reminder_template',
     emailApiKey: '',
     smsApiKey: ''
   });
 
-  const [saving, setSaving] = useState(false);
+  const [wifiDetails, setWifiDetails] = useState<WifiDetails>({
+    ssid: 'LibraryWiFi',
+    password: 'library123'
+  });
 
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load settings from MongoDB on component mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      const settings = await apiService.getSettings();
+      
+      if (settings) {
+        if (settings.library) {
+          setLibrarySettings(settings.library);
+        }
+        if (settings.fees) {
+          setFeeStructure(settings.fees);
+        }
+        if (settings.notifications) {
+          setNotificationSettings(settings.notifications);
+        }
+        if (settings.wifiDetails) {
+          setWifiDetails(settings.wifiDetails);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   const handleSaveLibrarySettings = async () => {
     setSaving(true);
     try {
-      // Save to localStorage for now (in real app, save to database)
-      localStorage.setItem('librarySettings', JSON.stringify(librarySettings));
+      await apiService.updateSettings({
+        type: 'app_settings',
+        library: librarySettings,
+        fees: feeStructure,
+        notifications: notificationSettings,
+        wifiDetails: wifiDetails
+      });
       alert('Library settings saved successfully!');
     } catch (error) {
       alert('Failed to save library settings');
+      console.error('Error saving library settings:', error);
     } finally {
       setSaving(false);
     }
@@ -74,10 +144,17 @@ function Settings() {
   const handleSaveFeeStructure = async () => {
     setSaving(true);
     try {
-      localStorage.setItem('feeStructure', JSON.stringify(feeStructure));
+      await apiService.updateSettings({
+        type: 'app_settings',
+        library: librarySettings,
+        fees: feeStructure,
+        notifications: notificationSettings,
+        wifiDetails: wifiDetails
+      });
       alert('Fee structure saved successfully!');
     } catch (error) {
       alert('Failed to save fee structure');
+      console.error('Error saving fee structure:', error);
     } finally {
       setSaving(false);
     }
@@ -86,31 +163,26 @@ function Settings() {
   const handleSaveNotificationSettings = async () => {
     setSaving(true);
     try {
-      localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+      await apiService.updateSettings({
+        type: 'app_settings',
+        library: librarySettings,
+        fees: feeStructure,
+        notifications: notificationSettings,
+        wifiDetails: wifiDetails
+      });
+      
+      // Refresh WhatsApp service configuration
+      const { whatsappService } = await import('../services/whatsappService');
+      await whatsappService.refreshSettings();
+      
       alert('Notification settings saved successfully!');
     } catch (error) {
       alert('Failed to save notification settings');
+      console.error('Error saving notification settings:', error);
     } finally {
       setSaving(false);
     }
   };
-
-  // Load settings from localStorage on component mount
-  useEffect(() => {
-    const savedLibrarySettings = localStorage.getItem('librarySettings');
-    const savedFeeStructure = localStorage.getItem('feeStructure');
-    const savedNotificationSettings = localStorage.getItem('notificationSettings');
-
-    if (savedLibrarySettings) {
-      setLibrarySettings(JSON.parse(savedLibrarySettings));
-    }
-    if (savedFeeStructure) {
-      setFeeStructure(JSON.parse(savedFeeStructure));
-    }
-    if (savedNotificationSettings) {
-      setNotificationSettings(JSON.parse(savedNotificationSettings));
-    }
-  }, []);
 
   const tabs = [
     { id: 'library', label: 'Library Details', icon: Building },
@@ -122,6 +194,14 @@ function Settings() {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
     return symbols[currency as keyof typeof symbols] || currency;
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">Loading settings...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -239,9 +319,9 @@ function Settings() {
                     value={feeStructure.currency}
                     onChange={(e) => setFeeStructure({ ...feeStructure, currency: e.target.value as any })}
                   >
+                    <option value="INR">INR (₹)</option>
                     <option value="USD">USD ($)</option>
                     <option value="EUR">EUR (€)</option>
-                    <option value="INR">INR (₹)</option>
                     <option value="GBP">GBP (£)</option>
                   </select>
                 </div>
@@ -345,42 +425,128 @@ function Settings() {
                 {notificationSettings.whatsappEnabled && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">WhatsApp API URL</label>
+                      <label className="block text-sm font-medium text-gray-700">WhatsApp Username</label>
                       <input
-                        type="url"
+                        type="text"
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
-                        value={notificationSettings.whatsappApiUrl}
-                        onChange={(e) => setNotificationSettings({ ...notificationSettings, whatsappApiUrl: e.target.value })}
-                        placeholder="https://graph.facebook.com/v17.0/YOUR_PHONE_NUMBER_ID/messages"
+                        value={notificationSettings.whatsappUsername}
+                        onChange={(e) => setNotificationSettings({ ...notificationSettings, whatsappUsername: e.target.value })}
+                        placeholder="Your Airtel WhatsApp username"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">WhatsApp Access Token</label>
+                      <label className="block text-sm font-medium text-gray-700">WhatsApp Secret</label>
                       <input
                         type="password"
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
-                        value={notificationSettings.whatsappToken}
-                        onChange={(e) => setNotificationSettings({ ...notificationSettings, whatsappToken: e.target.value })}
-                        placeholder="Your permanent access token"
+                        value={notificationSettings.whatsappSecret}
+                        onChange={(e) => setNotificationSettings({ ...notificationSettings, whatsappSecret: e.target.value })}
+                        placeholder="Your Airtel WhatsApp secret"
                       />
                     </div>
 
-                    <div className="bg-green-100 p-3 rounded-md">
-                      <h5 className="font-medium text-green-900 mb-2">Sample cURL Command:</h5>
-                      <code className="text-xs text-green-800 bg-green-200 p-2 rounded block overflow-x-auto">
-                        {`curl -X POST "${notificationSettings.whatsappApiUrl}" \\
-  -H "Authorization: Bearer ${notificationSettings.whatsappToken}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "messaging_product": "whatsapp",
-    "to": "PHONE_NUMBER",
-    "type": "text",
-    "text": {
-      "body": "Your subscription expires soon. Please renew."
-    }
-  }'`}
-                      </code>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Sender Number</label>
+                      <input
+                        type="tel"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
+                        value={notificationSettings.whatsappSenderNumber}
+                        onChange={(e) => setNotificationSettings({ ...notificationSettings, whatsappSenderNumber: e.target.value })}
+                        placeholder="919315431037"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Welcome Template ID</label>
+                      <input
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
+                        value={notificationSettings.whatsappWelcomeTemplateId}
+                        onChange={(e) => setNotificationSettings({ ...notificationSettings, whatsappWelcomeTemplateId: e.target.value })}
+                        placeholder="01k0scq4rbqeh6ch1jp4j33gd8"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Reminder Template ID</label>
+                      <input
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
+                        value={notificationSettings.whatsappReminderTemplateId}
+                        onChange={(e) => setNotificationSettings({ ...notificationSettings, whatsappReminderTemplateId: e.target.value })}
+                        placeholder="payment_reminder_template"
+                      />
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <h5 className="font-medium text-gray-900 mb-3">Auto Notifications</h5>
+                      
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700">Auto Welcome Message</span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={notificationSettings.autoWelcomeEnabled}
+                              onChange={(e) => setNotificationSettings({ ...notificationSettings, autoWelcomeEnabled: e.target.checked })}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700">Auto Payment Reminders</span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={notificationSettings.autoReminderEnabled}
+                              onChange={(e) => setNotificationSettings({ ...notificationSettings, autoReminderEnabled: e.target.checked })}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                          </label>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Reminder Days Before Due</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="30"
+                            className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
+                            value={notificationSettings.reminderDaysBefore}
+                            onChange={(e) => setNotificationSettings({ ...notificationSettings, reminderDaysBefore: parseInt(e.target.value) })}
+                          />
+                        </div>
+
+                        <div className="border-t pt-4">
+                          <h6 className="font-medium text-gray-900 mb-3">WiFi Details (for welcome messages)</h6>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">WiFi SSID</label>
+                              <input
+                                type="text"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
+                                value={wifiDetails.ssid}
+                                onChange={(e) => setWifiDetails({ ...wifiDetails, ssid: e.target.value })}
+                                placeholder="LibraryWiFi"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">WiFi Password</label>
+                              <input
+                                type="text"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm px-3 py-2 border"
+                                value={wifiDetails.password}
+                                onChange={(e) => setWifiDetails({ ...wifiDetails, password: e.target.value })}
+                                placeholder="library123"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

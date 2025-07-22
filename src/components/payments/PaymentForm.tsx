@@ -14,6 +14,7 @@ function PaymentForm({ students, onSubmit, onCancel, editingPayment }: PaymentFo
     studentId: editingPayment?.studentId || '',
     amount: editingPayment?.amount || 0,
     currency: editingPayment?.currency || 'USD' as const,
+    currency: editingPayment?.currency || 'INR' as const,
     dueDate: editingPayment?.dueDate ? new Date(editingPayment.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     planType: editingPayment?.planType || 'monthly' as const,
     dayType: editingPayment?.dayType || 'full' as const,
@@ -124,9 +125,9 @@ function PaymentForm({ students, onSubmit, onCancel, editingPayment }: PaymentFo
             value={formData.currency}
             onChange={(e) => setFormData({ ...formData, currency: e.target.value as Payment['currency'] })}
           >
+            <option value="INR">INR (₹)</option>
             <option value="USD">USD ($)</option>
             <option value="EUR">EUR (€)</option>
-            <option value="INR">INR (₹)</option>
             <option value="GBP">GBP (£)</option>
           </select>
         </div>

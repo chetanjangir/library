@@ -20,7 +20,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     dayType: editingStudent?.dayType || 'full',
     halfDaySlot: editingStudent?.halfDaySlot || 'morning',
     status: editingStudent?.status || 'active',
-    currency: editingStudent?.currency || 'USD',
+    currency: editingStudent?.currency || 'INR',
     monthlyAmount: editingStudent?.monthlyAmount || 100,
     halfDayAmount: editingStudent?.halfDayAmount || 60,
     fullDayAmount: editingStudent?.fullDayAmount || 100,
@@ -190,9 +190,9 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             value={formData.currency}
             onChange={(e) => setFormData({ ...formData, currency: e.target.value as Student['currency'] })}
           >
+            <option value="INR">INR (₹)</option>
             <option value="USD">USD ($)</option>
             <option value="EUR">EUR (€)</option>
-            <option value="INR">INR (₹)</option>
             <option value="GBP">GBP (£)</option>
           </select>
         </div>

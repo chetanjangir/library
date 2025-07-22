@@ -126,9 +126,23 @@ class ApiService {
   // WhatsApp API
   async sendWhatsAppMessage(mobile: string, message: string, type = 'welcome') {
     try {
-      // Simulate WhatsApp message sending
-      console.log('WhatsApp message:', { mobile, message, type });
-      return { success: true, message: 'WhatsApp message sent (simulated)' };
+      const { whatsappService } = await import('./whatsappService');
+      await whatsappService.refreshSettings();
+      
+      if (type === 'welcome') {
+        const success = await whatsappService.sendWelcomeMessage(
+          'Student', // This should be the actual student name
+          mobile,
+          undefined, // seat number
+          'LibraryWiFi',
+          'library123'
+        );
+        return { success, message: success ? 'Welcome message sent' : 'Failed to send welcome message' };
+      } else {
+        // For other message types, use the existing logic
+        console.log('WhatsApp message:', { mobile, message, type });
+        return { success: true, message: 'WhatsApp message sent (simulated)' };
+      }
     } catch (error) {
       console.error('Failed to send WhatsApp message:', error);
       // Don't throw error for WhatsApp failures
@@ -137,8 +151,38 @@ class ApiService {
   }
 
   async sendPaymentReminder(mobile: string, name: string, amount: number, dueDate: string) {
-    const message = `Dear ${name}, your payment of $${amount} is due on ${dueDate}. Please make the payment to continue using our library services.`;
-    return this.sendWhatsAppMessage(mobile, message, 'reminder');
+    try {
+      const { whatsappService } = await import('./whatsappService');
+      await whatsappService.refreshSettings();
+      
+      const success = await whatsappService.sendPaymentReminder(
+        name,
+        mobile,
+        amount,
+        'INR', // Default currency, should be passed from student data
+        dueDate
+      );
+      return { success, message: success ? 'Payment reminder sent' : 'Failed to send payment reminder' };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // Settings API
+  async getSettings() {
+    try {
+      return await this.request('/settings');
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+      return null;
+    }
+  }
+
+  async updateSettings(settings: any) {
+    return this.request('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
   }
 }
 

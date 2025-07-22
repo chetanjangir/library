@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, AlertTriangle, MessageCircle, Clock, Phone } from 'lucide-react';
+import { Calendar, AlertTriangle, MessageCircle, Clock, Phone, CheckSquare, Square } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { apiService } from '../services/api';
 import type { Student } from '../types';
@@ -9,6 +9,8 @@ function Expiring() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sendingReminders, setSendingReminders] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     loadExpiringStudents();
@@ -238,6 +240,18 @@ function Expiring() {
                   
                   return (
                     <tr key={student.id} className={`${getUrgencyColor(urgency)} border-l-4`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleSelectStudent(student.id)}
+                          className="flex items-center"
+                        >
+                          {selectedStudents.has(student.id) ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-600" />
+                          ) : (
+                            <Square className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{student.name}</div>

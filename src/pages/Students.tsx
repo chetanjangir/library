@@ -63,6 +63,22 @@ function Students() {
         await apiService.updateStudent(editingStudent.id, finalStudentData);
       } else {
         await apiService.createStudent(finalStudentData);
+        
+        // Send welcome message if auto-welcome is enabled
+        if (finalStudentData.mobile) {
+          try {
+            const result = await apiService.sendWhatsAppMessage(
+              finalStudentData.mobile,
+              `Welcome ${finalStudentData.name}! Your library seat ${finalStudentData.seatNumber || 'TBD'} is ready.`,
+              'welcome'
+            );
+            if (result.success) {
+              console.log('Welcome message sent successfully');
+            }
+          } catch (error) {
+            console.error('Failed to send welcome message:', error);
+          }
+        }
       }
       
       await loadStudents();
