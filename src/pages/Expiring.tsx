@@ -277,7 +277,7 @@ function Expiring() {
                           Expires: {new Date(student.subscriptionEndDate).toLocaleDateString()}
                         </div>
                         <div className="text-sm text-gray-500">
-                          ${student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}/month
+                          ₹{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}/month
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

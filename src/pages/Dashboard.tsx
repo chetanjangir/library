@@ -25,12 +25,21 @@ function Dashboard() {
       setLoading(true);
       setError(null);
       
+      console.log('Loading dashboard data...');
+      
       if (isAdmin()) {
         // Admin sees all data
         const [studentsData, paymentsData] = await Promise.all([
           apiService.getStudents(),
           apiService.getPayments()
         ]);
+        
+        console.log('Dashboard data loaded:', {
+          students: studentsData.length,
+          payments: paymentsData.length,
+          paidPayments: paymentsData.filter(p => p.status === 'paid').length
+        });
+        
         setStudents(studentsData);
         setPayments(paymentsData);
       } else {

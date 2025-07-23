@@ -44,7 +44,7 @@ export default async function handler(req, res) {
         
         // Generate payment for current month
         const currentDate = new Date();
-        const paymentDueDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 15); // 15th of each month
+        const paymentDueDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 15);
         
         // Determine payment status based on due date and subscription end date
         const now = new Date();
@@ -93,6 +93,8 @@ export default async function handler(req, res) {
             currency: student.currency,
             planType: student.plan_type,
             dayType: student.day_type,
+            paidDate: existingPayment.paidDate ? existingPayment.paidDate.toISOString() : null,
+            dueDate: existingPayment.dueDate ? existingPayment.dueDate.toISOString() : paymentDueDate.toISOString(),
             _id: undefined
           });
         } else {

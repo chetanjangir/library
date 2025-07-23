@@ -15,34 +15,36 @@ function RevenueChart({ students, payments = [], onRefresh }: RevenueChartProps)
   
   for (let i = 5; i >= 0; i--) {
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+    const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+    
+    // Get payments for this month that are paid
+    const monthPayments = payments.filter(payment => {
+      if (!payment.paidDate || payment.status !== 'paid') return false;
+      const paidDate = new Date(payment.paidDate);
+      return paidDate >= date && paidDate < nextMonth;
+    });
+    
+    const monthRevenue = monthPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    
     months.push({
       name: date.toLocaleDateString('en-US', { month: 'short' }),
-      value: 0
+      value: monthRevenue
     });
   }
-
-  // Calculate actual revenue from payments for each month
-  months.forEach((month, index) => {
-    const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - (5 - index), 1);
-    const nextMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
-    
-    // Get payments for this month
-    const monthPayments = payments.filter(payment => {
-      if (!payment.paidDate) return false;
-      const paidDate = new Date(payment.paidDate);
-      return paidDate >= monthDate && paidDate < nextMonth && payment.status === 'paid';
-    });
-    
-    month.value = monthPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-  });
 
   const maxValue = Math.max(...months.map(m => m.value));
   const totalRevenue = months.reduce((sum, month) => sum + month.value, 0);
   const avgRevenue = Math.round(totalRevenue / months.length);
 
-  const getCurrencySymbol = (currency: string) => {
-    return '₹'; // Always INR as requested
-  };
+  // Debug logging
+  console.log('Revenue Chart Data:', {
+    paymentsCount: payments.length,
+    paidPayments: payments.filter(p => p.status === 'paid').length,
+    months: months,
+    totalRevenue,
+    maxValue
+  });
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
@@ -82,6 +84,7 @@ function RevenueChart({ students, payments = [], onRefresh }: RevenueChartProps)
                 title={`${month.name}: ₹${month.value.toLocaleString()}`}
               />
               <span className="mt-2 text-xs text-gray-600 font-medium">{month.name}</span>
+              <span className="text-xs text-gray-500">₹{(month.value / 1000).toFixed(1)}k</span>
             </div>
           );
         })}

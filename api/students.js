@@ -56,15 +56,15 @@ export default async function handler(req, res) {
         name: student.name,
         email: student.email,
         mobile: student.mobile,
-        joinDate: student.join_date || student.joinDate,
-        startDate: student.start_date || student.join_date || student.joinDate,
+        joinDate: student.join_date ? student.join_date.toISOString() : student.joinDate,
+        startDate: student.start_date ? student.start_date.toISOString() : (student.join_date ? student.join_date.toISOString() : student.joinDate),
         endDate: student.end_date,
         planType: student.plan_type || student.planType,
         dayType: student.day_type || student.dayType,
         halfDaySlot: student.half_day_slot || student.halfDaySlot,
         status: student.status,
         seatNumber: student.seat_number || student.seatNumber,
-        subscriptionEndDate: student.subscription_end_date || student.subscriptionEndDate,
+        subscriptionEndDate: student.subscription_end_date ? student.subscription_end_date.toISOString() : student.subscriptionEndDate,
         currency: student.currency,
         monthlyAmount: student.monthly_amount || student.monthlyAmount,
         halfDayAmount: student.half_day_amount || student.halfDayAmount,
@@ -75,6 +75,7 @@ export default async function handler(req, res) {
         _id: undefined
       }));
       
+      console.log(`Returning ${responseStudents.length} students with proper date formatting`);
       return res.status(200).json(responseStudents);
     }
 

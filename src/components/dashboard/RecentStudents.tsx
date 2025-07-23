@@ -11,8 +11,22 @@ interface RecentStudentsProps {
 function RecentStudents({ students, onRefresh }: RecentStudentsProps) {
   // Sort by join date (most recent first)
   const recentStudents = students
-    .sort((a, b) => new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime())
+    .sort((a, b) => {
+      const dateA = new Date(a.joinDate || a.startDate);
+      const dateB = new Date(b.joinDate || b.startDate);
+      return dateB.getTime() - dateA.getTime();
+    })
     .slice(0, 5);
+
+  // Debug logging
+  console.log('Recent Students Data:', {
+    totalStudents: students.length,
+    recentStudents: recentStudents.map(s => ({
+      name: s.name,
+      joinDate: s.joinDate,
+      startDate: s.startDate
+    }))
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -24,6 +38,7 @@ function RecentStudents({ students, onRefresh }: RecentStudentsProps) {
   };
 
   const getDaysAgo = (dateString: string) => {
+    if (!dateString) return 'Unknown';
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
@@ -35,10 +50,6 @@ function RecentStudents({ students, onRefresh }: RecentStudentsProps) {
     return date.toLocaleDateString();
   };
 
-  const getCurrencySymbol = (currency: string) => {
-    const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
-    return symbols[currency as keyof typeof symbols] || '₹';
-  };
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
@@ -86,7 +97,7 @@ function RecentStudents({ students, onRefresh }: RecentStudentsProps) {
                     </div>
                     <div className="flex items-center">
                       <Clock className="w-3 h-3 mr-1" />
-                      {getDaysAgo(student.joinDate)}
+                      {getDaysAgo(student.joinDate || student.startDate)}
                     </div>
                   </div>
                 </div>
@@ -98,7 +109,7 @@ function RecentStudents({ students, onRefresh }: RecentStudentsProps) {
                 </span>
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">
-                    {getCurrencySymbol(student.currency)}{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
+                    ₹{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
                   </p>
                   <p className="text-xs text-gray-500 capitalize">
                     {student.dayType} day
