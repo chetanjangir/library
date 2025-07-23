@@ -40,9 +40,15 @@ function RevenueChart({ students, payments = [], onRefresh }: RevenueChartProps)
   console.log('Revenue Chart Data:', {
     paymentsCount: payments.length,
     paidPayments: payments.filter(p => p.status === 'paid').length,
+    paidPaymentsWithDates: payments.filter(p => p.status === 'paid' && p.paidDate).length,
     months: months,
     totalRevenue,
-    maxValue
+    maxValue,
+    samplePayments: payments.slice(0, 3).map(p => ({
+      status: p.status,
+      paidDate: p.paidDate,
+      amount: p.amount
+    }))
   });
 
   return (

@@ -37,7 +37,9 @@ function Dashboard() {
         console.log('Dashboard data loaded:', {
           students: studentsData.length,
           payments: paymentsData.length,
-          paidPayments: paymentsData.filter(p => p.status === 'paid').length
+          paidPayments: paymentsData.filter(p => p.status === 'paid').length,
+          paymentsWithPaidDate: paymentsData.filter(p => p.status === 'paid' && p.paidDate).length,
+          samplePayment: paymentsData[0]
         });
         
         setStudents(studentsData);

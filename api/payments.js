@@ -27,115 +27,56 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       console.log('Fetching payments from MongoDB...');
       
-      // Get all students to generate payments
+      // Get all payments from database
+      const payments = await paymentsCollection.find({}).sort({ due_date: -1 }).toArray();
+      console.log(`Found ${payments.length} payments in database`);
+      
+      // Get all students to enrich payment data
       const students = await studentsCollection.find({}).toArray();
-      console.log(`Found ${students.length} students for payment calculation`);
+      const studentsMap = {};
+      students.forEach(student => {
+        studentsMap[student._id.toString()] = student;
+      });
       
-      // Get existing payments
-      const existingPayments = await paymentsCollection.find({}).toArray();
-      console.log(`Found ${existingPayments.length} existing payments`);
+      // Convert payments to frontend format
+      const responsePayments = payments.map(payment => {
+        const student = studentsMap[payment.student_id];
+        return {
+          id: payment._id.toString(),
+          studentId: payment.student_id,
+          studentName: payment.student_name || (student ? student.name : 'Unknown'),
+          amount: payment.amount,
+          currency: payment.currency || 'INR',
+          dueDate: payment.due_date ? payment.due_date.toISOString().split('T')[0] : null,
+          paidDate: payment.paid_date ? payment.paid_date.toISOString().split('T')[0] : null,
+          status: payment.status || 'pending',
+          planType: payment.plan_type || 'monthly',
+          dayType: payment.day_type || 'full',
+          createdAt: payment.created_at,
+          updatedAt: payment.updated_at,
+          _id: undefined
+        };
+      });
       
-      // Generate payments for each student
-      const allPayments = [];
-      
-      for (const student of students) {
-        // Calculate monthly payment amount based on day type
-        const monthlyAmount = student.day_type === 'half' ? student.half_day_amount : student.full_day_amount;
-        
-        // Generate payment for current month
-        const currentDate = new Date();
-        const paymentDueDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 15);
-        
-        // Determine payment status based on due date and subscription end date
-        const now = new Date();
-        const subscriptionEndDate = new Date(student.subscription_end_date);
-        let paymentStatus = 'pending';
-        
-        if (paymentDueDate < now) {
-          if (subscriptionEndDate < now) {
-            paymentStatus = 'overdue';
-          } else {
-            paymentStatus = 'overdue';
-          }
-        } else {
-          paymentStatus = 'pending';
-        }
-        
-        // Check if payment already exists for this student and month
-        const existingPayment = existingPayments.find(p => 
-          p.studentId === student._id.toString() && 
-          new Date(p.dueDate).getMonth() === paymentDueDate.getMonth() &&
-          new Date(p.dueDate).getFullYear() === paymentDueDate.getFullYear()
-        );
-        
-        if (existingPayment) {
-          // Update status if needed
-          let updatedStatus = existingPayment.status;
-          if (existingPayment.status !== 'paid') {
-            updatedStatus = paymentStatus;
-            
-            // Update in database if status changed
-            if (updatedStatus !== existingPayment.status) {
-              await paymentsCollection.updateOne(
-                { _id: existingPayment._id },
-                { $set: { status: updatedStatus, updatedAt: new Date() } }
-              );
-            }
-          }
-          
-          // Use existing payment
-          allPayments.push({
-            ...existingPayment,
-            id: existingPayment._id.toString(),
-            studentName: student.name,
-            studentId: student._id.toString(),
-            status: updatedStatus,
-            currency: student.currency,
-            planType: student.plan_type,
-            dayType: student.day_type,
-            paidDate: existingPayment.paidDate ? existingPayment.paidDate.toISOString() : null,
-            dueDate: existingPayment.dueDate ? existingPayment.dueDate.toISOString() : paymentDueDate.toISOString(),
-            _id: undefined
-          });
-        } else {
-          // Create new payment record
-          const newPayment = {
-            studentId: student._id.toString(),
-            studentName: student.name,
-            amount: monthlyAmount,
-            currency: student.currency,
-            dueDate: paymentDueDate.toISOString(),
-            status: paymentStatus,
-            planType: student.plan_type,
-            dayType: student.day_type,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          };
-          
-          // Insert into database
-          const result = await paymentsCollection.insertOne(newPayment);
-          
-          allPayments.push({
-            ...newPayment,
-            id: result.insertedId.toString(),
-            _id: undefined
-          });
-        }
-      }
-      
-      console.log(`Returning ${allPayments.length} payments`);
-      return res.status(200).json(allPayments);
+      console.log(`Returning ${responsePayments.length} payments`);
+      return res.status(200).json(responsePayments);
     }
 
     if (req.method === 'POST') {
       console.log('Creating new payment:', req.body);
       
       const paymentData = {
-        ...req.body,
-        dueDate: new Date(req.body.dueDate),
-        paidDate: req.body.paidDate ? new Date(req.body.paidDate) : null,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        student_id: req.body.studentId,
+        student_name: req.body.studentName,
+        amount: parseFloat(req.body.amount),
+        currency: req.body.currency || 'INR',
+        due_date: new Date(req.body.dueDate),
+        paid_date: req.body.paidDate ? new Date(req.body.paidDate) : null,
+        status: req.body.status || 'pending',
+        plan_type: req.body.planType || 'monthly',
+        day_type: req.body.dayType || 'full',
+        created_at: new Date(),
+        updated_at: new Date()
       };
 
       const result = await paymentsCollection.insertOne(paymentData);
@@ -144,8 +85,16 @@ export default async function handler(req, res) {
       const newPayment = await paymentsCollection.findOne({ _id: result.insertedId });
       
       const responsePayment = {
-        ...newPayment,
         id: newPayment._id.toString(),
+        studentId: newPayment.student_id,
+        studentName: newPayment.student_name,
+        amount: newPayment.amount,
+        currency: newPayment.currency,
+        dueDate: newPayment.due_date ? newPayment.due_date.toISOString().split('T')[0] : null,
+        paidDate: newPayment.paid_date ? newPayment.paid_date.toISOString().split('T')[0] : null,
+        status: newPayment.status,
+        planType: newPayment.plan_type,
+        dayType: newPayment.day_type,
         _id: undefined
       };
 
@@ -159,20 +108,36 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Payment ID is required for updates' });
       }
 
-      console.log('Updating payment:', id);
+      console.log('Updating payment:', id, updateData);
 
       const { ObjectId } = await import('mongodb');
       const updateDoc = {
-        ...updateData,
-        updatedAt: new Date()
+        student_id: updateData.studentId,
+        student_name: updateData.studentName,
+        amount: parseFloat(updateData.amount),
+        currency: updateData.currency || 'INR',
+        status: updateData.status || 'pending',
+        plan_type: updateData.planType || 'monthly',
+        day_type: updateData.dayType || 'full',
+        updated_at: new Date()
       };
 
-      if (updateData.paidDate) {
-        updateDoc.paidDate = new Date(updateData.paidDate);
-      }
       if (updateData.dueDate) {
-        updateDoc.dueDate = new Date(updateData.dueDate);
+        updateDoc.due_date = new Date(updateData.dueDate);
       }
+      if (updateData.paidDate) {
+        updateDoc.paid_date = new Date(updateData.paidDate);
+      }
+      if (updateData.status === 'paid' && !updateData.paidDate) {
+        updateDoc.paid_date = new Date();
+      }
+
+      // Remove undefined values
+      Object.keys(updateDoc).forEach(key => {
+        if (updateDoc[key] === undefined) {
+          delete updateDoc[key];
+        }
+      });
 
       await paymentsCollection.updateOne(
         { _id: new ObjectId(id) },
@@ -182,8 +147,16 @@ export default async function handler(req, res) {
       const updatedPayment = await paymentsCollection.findOne({ _id: new ObjectId(id) });
       
       const responsePayment = {
-        ...updatedPayment,
         id: updatedPayment._id.toString(),
+        studentId: updatedPayment.student_id,
+        studentName: updatedPayment.student_name,
+        amount: updatedPayment.amount,
+        currency: updatedPayment.currency,
+        dueDate: updatedPayment.due_date ? updatedPayment.due_date.toISOString().split('T')[0] : null,
+        paidDate: updatedPayment.paid_date ? updatedPayment.paid_date.toISOString().split('T')[0] : null,
+        status: updatedPayment.status,
+        planType: updatedPayment.plan_type,
+        dayType: updatedPayment.day_type,
         _id: undefined
       };
 
@@ -210,6 +183,7 @@ export default async function handler(req, res) {
         deletedId: id
       });
     }
+
     return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (error) {
@@ -224,7 +198,20 @@ export default async function handler(req, res) {
 function handleFallback(req, res) {
   console.log('Using fallback data for payments API');
   
-  const samplePayments = [];
+  const samplePayments = [
+    {
+      id: '1',
+      studentId: '1',
+      studentName: 'Sample Student',
+      amount: 1000,
+      currency: 'INR',
+      dueDate: '2024-01-15',
+      status: 'paid',
+      planType: 'monthly',
+      dayType: 'full',
+      paidDate: '2024-01-10'
+    }
+  ];
 
   if (req.method === 'GET') {
     return res.status(200).json(samplePayments);
@@ -247,6 +234,11 @@ function handleFallback(req, res) {
     };
     console.log('Updated fallback payment:', updatedPayment.id);
     return res.status(200).json(updatedPayment);
+  }
+
+  if (req.method === 'DELETE') {
+    console.log('Deleted fallback payment:', req.body.id);
+    return res.status(200).json({ message: 'Payment deleted successfully (fallback)' });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

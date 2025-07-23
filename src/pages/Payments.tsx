@@ -90,6 +90,7 @@ function Payments() {
       if (!payment) return;
 
       const updateData = {
+        ...payment,
         status: 'paid',
         paidDate: new Date().toISOString()
       };
