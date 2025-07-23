@@ -56,7 +56,7 @@ function PaymentsAnalytics({ payments, students }: PaymentsAnalyticsProps) {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-green-600">Total Collected</p>
-              <p className="text-2xl font-bold text-green-900">${totalCollected.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-900">₹{totalCollected.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -66,7 +66,7 @@ function PaymentsAnalytics({ payments, students }: PaymentsAnalyticsProps) {
             <Clock className="w-8 h-8 text-yellow-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-yellow-600">Total Dues</p>
-              <p className="text-2xl font-bold text-yellow-900">${totalDues.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-yellow-900">₹{totalDues.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@ function PaymentsAnalytics({ payments, students }: PaymentsAnalyticsProps) {
             <AlertCircle className="w-8 h-8 text-red-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-red-600">Overdue</p>
-              <p className="text-2xl font-bold text-red-900">${overdue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-red-900">₹{overdue.toLocaleString()}</p>
             </div>
           </div>
         </div>

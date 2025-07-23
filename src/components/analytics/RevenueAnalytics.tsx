@@ -95,7 +95,7 @@ function RevenueAnalytics({ students, payments }: RevenueAnalyticsProps) {
             <DollarSign className="w-8 h-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-green-600">Monthly Revenue</p>
-              <p className="text-2xl font-bold text-green-900">${monthlyRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-900">₹{monthlyRevenue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -105,7 +105,7 @@ function RevenueAnalytics({ students, payments }: RevenueAnalyticsProps) {
             <TrendingUp className="w-8 h-8 text-blue-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-blue-600">Quarterly Revenue</p>
-              <p className="text-2xl font-bold text-blue-900">${quarterlyRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-blue-900">₹{quarterlyRevenue.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@ function RevenueAnalytics({ students, payments }: RevenueAnalyticsProps) {
             <Target className="w-8 h-8 text-purple-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-purple-600">Annual Target</p>
-              <p className="text-2xl font-bold text-purple-900">${annualTarget.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-purple-900">₹{annualTarget.toLocaleString()}</p>
               <p className="text-xs text-purple-600">{annualProgress}% achieved</p>
             </div>
           </div>
@@ -127,7 +127,7 @@ function RevenueAnalytics({ students, payments }: RevenueAnalyticsProps) {
             <div className="ml-4">
               <p className="text-sm font-medium text-orange-600">Avg. Revenue/Student</p>
               <p className="text-2xl font-bold text-orange-900">
-                ${students.filter(s => s.status === 'active').length > 0 ? 
+                ₹{students.filter(s => s.status === 'active').length > 0 ? 
                   Math.round(monthlyRevenue / students.filter(s => s.status === 'active').length) : 0}
               </p>
             </div>

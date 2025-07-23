@@ -107,7 +107,7 @@ function Dashboard() {
     },
     {
       label: 'Monthly Revenue',
-      value: `$${monthlyRevenue.toLocaleString()}`,
+      value: `₹${monthlyRevenue.toLocaleString()}`,
       change: 8,
       trend: 'up'
     },
@@ -119,7 +119,7 @@ function Dashboard() {
     },
     {
       label: 'Payment Collection',
-      value: `$${totalCollected.toLocaleString()}`,
+      value: `₹${totalCollected.toLocaleString()}`,
       change: totalDues > 0 ? Math.round((totalCollected / (totalCollected + totalDues)) * 100) : 100,
       trend: totalDues > 0 ? 'up' : 'down'
     }
@@ -134,13 +134,13 @@ function Dashboard() {
     },
     {
       label: 'Monthly Fee',
-      value: `$${monthlyRevenue}`,
+      value: `₹${monthlyRevenue}`,
       change: 0,
       trend: 'up'
     },
     {
       label: 'Payments Due',
-      value: `$${totalDues}`,
+      value: `₹${totalDues}`,
       change: 0,
       trend: totalDues > 0 ? 'down' : 'up'
     },
@@ -231,7 +231,7 @@ function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Chart */}
         <div className="lg:col-span-2">
-          <RevenueChart students={students} payments={payments} />
+          <RevenueChart students={students} payments={payments} onRefresh={loadDashboardData} />
         </div>
 
         {/* Quick Actions */}
@@ -253,7 +253,7 @@ function Dashboard() {
         
         {/* Recent Students */}
         {isAdmin() ? (
-          <RecentStudents students={students.slice(0, 5)} />
+          <RecentStudents students={students.slice(0, 5)} onRefresh={loadDashboardData} />
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">My Account Details</h2>

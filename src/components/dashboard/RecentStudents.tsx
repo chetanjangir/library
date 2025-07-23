@@ -1,12 +1,14 @@
 import React from 'react';
 import { Users, Clock, MapPin } from 'lucide-react';
 import type { Student } from '../../types';
+import { apiService } from '../../services/api';
 
 interface RecentStudentsProps {
   students: Student[];
+  onRefresh?: () => void;
 }
 
-function RecentStudents({ students }: RecentStudentsProps) {
+function RecentStudents({ students, onRefresh }: RecentStudentsProps) {
   // Sort by join date (most recent first)
   const recentStudents = students
     .sort((a, b) => new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime())
@@ -33,6 +35,10 @@ function RecentStudents({ students }: RecentStudentsProps) {
     return date.toLocaleDateString();
   };
 
+  const getCurrencySymbol = (currency: string) => {
+    const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
+    return symbols[currency as keyof typeof symbols] || '₹';
+  };
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
@@ -40,7 +46,20 @@ function RecentStudents({ students }: RecentStudentsProps) {
           <h2 className="text-lg font-semibold text-gray-900">Recent Students</h2>
           <p className="text-sm text-gray-600">Latest student registrations</p>
         </div>
-        <Users className="w-5 h-5 text-gray-500" />
+        <div className="flex items-center space-x-2">
+          <Users className="w-5 h-5 text-gray-500" />
+          {onRefresh && (
+            <button 
+              onClick={onRefresh}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+              title="Refresh data"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {recentStudents.length === 0 ? (
@@ -79,7 +98,7 @@ function RecentStudents({ students }: RecentStudentsProps) {
                 </span>
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">
-                    ${student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
+                    {getCurrencySymbol(student.currency)}{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
                   </p>
                   <p className="text-xs text-gray-500 capitalize">
                     {student.dayType} day
