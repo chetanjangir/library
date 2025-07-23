@@ -12,7 +12,7 @@ function Navbar() {
           <div className="flex items-center flex-shrink-0">
             <BookOpen className="h-8 w-8 text-indigo-600" />
             <span className="ml-2 text-lg sm:text-xl font-semibold">
-              <span className="hidden sm:inline">Library Management</span>
+              <span className="hidden sm:inline">Samarth Library</span>
               <span className="sm:hidden">Library</span>
             </span>
           </div>
