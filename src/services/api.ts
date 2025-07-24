@@ -123,6 +123,24 @@ class ApiService {
     }
   }
 
+  async getAvailableSeats() {
+    try {
+      return await this.request('/seats-availability');
+    } catch (error) {
+      console.error('Failed to fetch available seats:', error);
+      // Return all seats as available fallback
+      const fallbackSeats = [];
+      for (let i = 1; i <= 100; i++) {
+        fallbackSeats.push({
+          seatNumber: i,
+          type: 'vacant',
+          availability: 'full'
+        });
+      }
+      return fallbackSeats;
+    }
+  }
+
   // WhatsApp API
   async sendWhatsAppMessage(mobile: string, message: string, type = 'welcome') {
     try {

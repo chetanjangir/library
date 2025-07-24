@@ -13,7 +13,7 @@ function Navbar() {
             <BookOpen className="h-8 w-8 text-indigo-600" />
             <span className="ml-2 text-lg sm:text-xl font-semibold">
               <span className="hidden sm:inline">Samarth Library</span>
-              <span className="sm:hidden">Library</span>
+              <span className="sm:hidden">Samarth</span>
             </span>
           </div>
           

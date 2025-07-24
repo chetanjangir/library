@@ -3,6 +3,7 @@ export interface Student {
   name: string;
   email: string;
   mobile: string;
+  biometricId?: string;
   joinDate: string;
   startDate: string;
   endDate?: string;

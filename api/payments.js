@@ -35,16 +35,16 @@ export default async function handler(req, res) {
       const students = await studentsCollection.find({}).toArray();
       const studentsMap = {};
       students.forEach(student => {
-        studentsMap[student._id.toString()] = student;
+        studentsMap[student._id.toString()] = student.name;
       });
       
       // Convert payments to frontend format
       const responsePayments = payments.map(payment => {
-        const student = studentsMap[payment.student_id];
+        const studentName = studentsMap[payment.student_id] || payment.student_name || 'Unknown Student';
         return {
           id: payment._id.toString(),
           studentId: payment.student_id,
-          studentName: payment.student_name || (student ? student.name : 'Unknown'),
+          studentName: studentName,
           amount: payment.amount,
           currency: payment.currency || 'INR',
           dueDate: payment.due_date ? payment.due_date.toISOString().split('T')[0] : null,

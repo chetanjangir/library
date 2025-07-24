@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Button from '../ui/Button';
+import { apiService } from '../../services/api';
 import type { Student } from '../../types';
 
 interface StudentFormProps {
@@ -14,6 +15,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     name: editingStudent?.name || '',
     email: editingStudent?.email || '',
     mobile: editingStudent?.mobile || '',
+    biometricId: editingStudent?.biometricId || '',
     startDate: editingStudent?.startDate ? new Date(editingStudent.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     endDate: editingStudent?.endDate ? new Date(editingStudent.endDate).toISOString().split('T')[0] : '',
     planType: editingStudent?.planType || 'monthly',
@@ -29,6 +31,39 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     paidAmount: editingStudent?.paidAmount || 0,
     balanceAmount: editingStudent?.balanceAmount || 0
   });
+
+  const [availableSeats, setAvailableSeats] = useState<any[]>([]);
+  const [loadingSeats, setLoadingSeats] = useState(false);
+
+  // Load available seats when component mounts or day type changes
+  React.useEffect(() => {
+    loadAvailableSeats();
+  }, [formData.dayType, formData.halfDaySlot]);
+
+  const loadAvailableSeats = async () => {
+    try {
+      setLoadingSeats(true);
+      const seats = await apiService.getAvailableSeats();
+      
+      // Filter seats based on day type and slot
+      let filteredSeats = seats;
+      if (formData.dayType === 'half') {
+        filteredSeats = seats.filter(seat => 
+          seat.availability === 'full' || 
+          seat.availability === formData.halfDaySlot
+        );
+      } else {
+        filteredSeats = seats.filter(seat => seat.availability === 'full');
+      }
+      
+      setAvailableSeats(filteredSeats);
+    } catch (error) {
+      console.error('Failed to load available seats:', error);
+      setAvailableSeats([]);
+    } finally {
+      setLoadingSeats(false);
+    }
+  };
 
   // Calculate total amount based on day type
   const totalAmount = formData.dayType === 'half' ? formData.halfDayAmount : formData.fullDayAmount;
@@ -112,6 +147,16 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700">Biometric ID</label>
+          <input
+            type="text"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+            value={formData.biometricId}
+            onChange={(e) => setFormData({ ...formData, biometricId: e.target.value })}
+            placeholder="Enter biometric ID"
+          />
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700">Start Date *</label>
           <input
             type="date"
@@ -134,14 +179,29 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Seat Number</label>
-          <input
-            type="number"
-            min="1"
-            max="100"
+          <select
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
             value={formData.seatNumber || ''}
             onChange={(e) => setFormData({ ...formData, seatNumber: e.target.value ? parseInt(e.target.value) : undefined })}
-          />
+          >
+            <option value="">Select available seat</option>
+            {loadingSeats ? (
+              <option disabled>Loading available seats...</option>
+            ) : (
+              availableSeats.map((seat) => (
+                <option key={seat.seatNumber} value={seat.seatNumber}>
+                  Seat {seat.seatNumber} 
+                  {seat.availability !== 'full' ? ` (${seat.availability} slot available)` : ' (fully available)'}
+                </option>
+              ))
+            )}
+          </select>
+          <p className="mt-1 text-sm text-gray-500">
+            {formData.dayType === 'half' 
+              ? `Showing seats available for ${formData.halfDaySlot} slot`
+              : 'Showing fully available seats'
+            }
+          </p>
         </div>
 
         <div>
