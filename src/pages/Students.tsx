@@ -3,6 +3,8 @@ import { Plus, MessageCircle, AlertTriangle, Search, Filter } from 'lucide-react
 import Button from '../components/ui/Button';
 import StudentForm from '../components/students/StudentForm';
 import StudentList from '../components/students/StudentList';
+import { ToastContainer } from '../components/ui/Toast';
+import { useToast } from '../hooks/useToast';
 import { apiService } from '../services/api';
 import type { Student } from '../types';
 
@@ -15,6 +17,7 @@ function Students() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'expired'>('all');
+  const { toasts, removeToast, showSuccess, showError } = useToast();
 
   // Load students on component mount
   React.useEffect(() => {
@@ -98,12 +101,14 @@ function Students() {
       setEditingStudent(null);
       setPrefilledSeatNumber(undefined);
       
-      // Show success message
-      alert(`Student ${editingStudent ? 'updated' : 'added'} successfully!${finalStudentData.mobile ? ' WhatsApp welcome message sent.' : ''}`);
+      showSuccess(
+        `Student ${editingStudent ? 'Updated' : 'Added'}`,
+        `${finalStudentData.name} ${editingStudent ? 'updated' : 'added'} successfully!${finalStudentData.mobile ? ' WhatsApp welcome message sent.' : ''}`
+      );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `Failed to ${editingStudent ? 'update' : 'add'} student`;
       setError(errorMessage);
-      alert(errorMessage);
+      showError('Operation Failed', errorMessage);
       console.error('Error saving student:', err);
     }
   };
@@ -115,15 +120,17 @@ function Students() {
   };
 
   const handleDeleteStudent = async (student: Student) => {
-    try {
-      await apiService.deleteStudent(student.id);
-      await loadStudents();
-      alert(`Student ${student.name} deleted successfully!`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete student';
-      setError(errorMessage);
-      alert(errorMessage);
-      console.error('Error deleting student:', err);
+    if (confirm(`Are you sure you want to delete ${student.name}? This action cannot be undone.`)) {
+      try {
+        await apiService.deleteStudent(student.id);
+        await loadStudents();
+        showSuccess('Student Deleted', `${student.name} deleted successfully!`);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to delete student';
+        setError(errorMessage);
+        showError('Delete Failed', errorMessage);
+        console.error('Error deleting student:', err);
+      }
     }
   };
 
@@ -149,16 +156,16 @@ function Students() {
 
       await apiService.updateStudent(student.id, updateData);
       await loadStudents();
-      alert(`Balance of ${getCurrencySymbol(student.currency)}${amount} added successfully!`);
+      showSuccess('Balance Added', `₹${amount} added to ${student.name}'s account`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update balance';
       setError(errorMessage);
-      alert(errorMessage);
+      showError('Update Failed', errorMessage);
       console.error('Error updating balance:', err);
     }
   };
 
-  const handleUpdateStatus = async (student: Student, newStatus: 'active' | 'inactive' | 'expired') => {
+  const handleUpdateStatus = async (student: Student, newStatus: 'active' | 'inactive' | 'expired'): Promise<void> => {
     try {
       const updateData = {
         ...student,
@@ -167,34 +174,26 @@ function Students() {
 
       await apiService.updateStudent(student.id, updateData);
       await loadStudents();
-      
-      if (newStatus === 'inactive') {
-        alert(`Student ${student.name} marked as inactive. Seat ${student.seatNumber || 'N/A'} is now available.`);
-      } else {
-        alert(`Student ${student.name} status updated to ${newStatus}.`);
-      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update status';
       setError(errorMessage);
-      alert(errorMessage);
+      throw new Error(errorMessage);
       console.error('Error updating status:', err);
     }
   };
 
-  const handleTogglePaymentStatus = async (student: Student) => {
+  const handleUpdatePaymentStatus = async (student: Student, newPaymentStatus: 'paid' | 'due' | 'partial'): Promise<void> => {
     try {
-      let newPaymentStatus: 'paid' | 'due' | 'partial';
       let newPaidAmount = student.paidAmount || 0;
       const totalAmount = student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount;
       
-      // Toggle payment status
-      if (student.paymentStatus === 'paid') {
-        newPaymentStatus = 'due';
-        newPaidAmount = 0;
-      } else {
-        newPaymentStatus = 'paid';
+      // Set payment amounts based on status
+      if (newPaymentStatus === 'paid') {
         newPaidAmount = totalAmount;
+      } else if (newPaymentStatus === 'due') {
+        newPaidAmount = 0;
       }
+      // For partial, keep existing paid amount
       
       const newBalanceAmount = Math.max(0, totalAmount - newPaidAmount);
       
@@ -225,11 +224,10 @@ function Students() {
       }
       
       await loadStudents();
-      alert(`Payment status updated to ${newPaymentStatus} for ${student.name}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update payment status';
       setError(errorMessage);
-      alert(errorMessage);
+      throw new Error(errorMessage);
       console.error('Error updating payment status:', err);
     }
   };
@@ -259,15 +257,15 @@ function Students() {
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
-          alert(`Payment reminder sent to ${student.name}`);
+          showSuccess('Reminder Sent', `Payment reminder sent to ${student.name}`);
         } else {
-          alert(`Failed to send reminder: ${result.error}`);
+          showError('Reminder Failed', result.error || 'Failed to send reminder');
         }
       } else {
-        alert('Failed to send reminder');
+        showError('Reminder Failed', 'Failed to send reminder');
       }
     } catch (err) {
-      alert('Failed to send reminder');
+      showError('Reminder Failed', 'Failed to send reminder');
       console.error('Error sending reminder:', err);
     }
   };
@@ -304,6 +302,7 @@ function Students() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           {error}
@@ -420,7 +419,7 @@ function Students() {
               onDelete={handleDeleteStudent}
               onUpdateBalance={handleUpdateBalance}
               onUpdateStatus={handleUpdateStatus}
-              onTogglePaymentStatus={handleTogglePaymentStatus}
+              onUpdatePaymentStatus={handleUpdatePaymentStatus}
             />
           </div>
         )}

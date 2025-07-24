@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Plus, DollarSign, Edit } from 'lucide-react';
 import Button from '../components/ui/Button';
 import PaymentForm from '../components/payments/PaymentForm';
+import { ToastContainer } from '../components/ui/Toast';
+import { useToast } from '../hooks/useToast';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { Payment, Student } from '../types';
@@ -14,6 +16,7 @@ function Payments() {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toasts, removeToast, showSuccess, showError } = useToast();
 
   // Load data on component mount
   useEffect(() => {
@@ -70,18 +73,21 @@ function Payments() {
       setShowForm(false);
       setEditingPayment(null);
       
-      alert(`Payment ${editingPayment ? 'updated' : 'added'} successfully!`);
+      showSuccess(
+        `Payment ${editingPayment ? 'Updated' : 'Added'}`,
+        `Payment ${editingPayment ? 'updated' : 'added'} successfully!`
+      );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `Failed to ${editingPayment ? 'update' : 'add'} payment`;
       setError(errorMessage);
-      alert(errorMessage);
+      showError('Operation Failed', errorMessage);
       console.error('Error saving payment:', err);
     }
   };
 
   const handleMarkAsPaid = async (paymentId: string) => {
     if (!isAdmin()) {
-      alert('Only administrators can modify payment status');
+      showError('Access Denied', 'Only administrators can modify payment status');
       return;
     }
     
@@ -98,16 +104,16 @@ function Payments() {
       await apiService.updatePayment(paymentId, updateData);
       
       await loadData();
-      alert('Payment marked as paid successfully!');
+      showSuccess('Payment Updated', 'Payment marked as paid successfully!');
     } catch (err) {
-      alert('Failed to update payment status');
+      showError('Update Failed', 'Failed to update payment status');
       console.error('Error updating payment:', err);
     }
   };
 
   const handleEditPayment = (payment: Payment) => {
     if (!isAdmin()) {
-      alert('Only administrators can edit payments');
+      showError('Access Denied', 'Only administrators can edit payments');
       return;
     }
     setEditingPayment(payment);
@@ -153,6 +159,7 @@ function Payments() {
 
   return (
     <div>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           {error}
@@ -260,11 +267,13 @@ function Payments() {
                     {payments.filter(p => p && p.id).map((payment) => (
                       <tr key={payment.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{payment.studentName}</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {payment.studentName || 'Unknown Student'}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {getCurrencySymbol(payment.currency || 'USD')}{(payment.amount || 0).toFixed(2)}
+                            ₹{(payment.amount || 0).toFixed(2)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -275,9 +284,9 @@ function Payments() {
                                   try {
                                     await apiService.deletePayment(payment.id);
                                     await loadData();
-                                    alert('Payment deleted successfully!');
+                                    showSuccess('Payment Deleted', 'Payment deleted successfully!');
                                   } catch (err) {
-                                    alert('Failed to delete payment');
+                                    showError('Delete Failed', 'Failed to delete payment');
                                     console.error('Error deleting payment:', err);
                                   }
                                 }

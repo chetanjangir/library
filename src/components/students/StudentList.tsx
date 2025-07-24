@@ -2,6 +2,7 @@ import React from 'react';
 import { Edit, MessageCircle, AlertTriangle, Trash2, DollarSign, UserCheck } from 'lucide-react';
 import type { Student } from '../../types';
 import Button from '../ui/Button';
+import { useToast } from '../../hooks/useToast';
 
 interface StudentListProps {
   students: Student[];
@@ -9,13 +10,13 @@ interface StudentListProps {
   onSendReminder: (student: Student) => void;
   onDelete: (student: Student) => void;
   onUpdateBalance: (student: Student, amount: number) => void;
-  onUpdateStatus: (student: Student, status: 'active' | 'inactive' | 'expired') => void;
-  onTogglePaymentStatus: (student: Student) => void;
+  onUpdateStatus: (student: Student, status: 'active' | 'inactive' | 'expired') => Promise<void>;
+  onUpdatePaymentStatus: (student: Student, status: 'paid' | 'due' | 'partial') => Promise<void>;
 }
 
-function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus, onTogglePaymentStatus }: StudentListProps) {
+function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus, onUpdatePaymentStatus }: StudentListProps) {
   const [balanceInputs, setBalanceInputs] = React.useState<{[key: string]: string}>({});
-  const [statusUpdates, setStatusUpdates] = React.useState<{[key: string]: string}>({});
+  const { showSuccess, showError } = useToast();
 
   const getCurrencySymbol = (currency: string) => {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
@@ -61,11 +62,23 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
   };
 
   const handleStatusUpdate = (student: Student, newStatus: string) => {
-    onUpdateStatus(student, newStatus as 'active' | 'inactive' | 'expired');
+    onUpdateStatus(student, newStatus as 'active' | 'inactive' | 'expired')
+      .then(() => {
+        showSuccess('Status Updated', `${student.name} status changed to ${newStatus}`);
+      })
+      .catch(() => {
+        showError('Update Failed', 'Failed to update student status');
+      });
   };
 
-  const handlePaymentStatusToggle = (student: Student) => {
-    onTogglePaymentStatus(student);
+  const handlePaymentStatusUpdate = (student: Student, newStatus: string) => {
+    onUpdatePaymentStatus(student, newStatus as 'paid' | 'due' | 'partial')
+      .then(() => {
+        showSuccess('Payment Status Updated', `${student.name} payment status changed to ${newStatus}`);
+      })
+      .catch(() => {
+        showError('Update Failed', 'Failed to update payment status');
+      });
   };
 
   return (
@@ -168,18 +181,19 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                 </div>
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                <button
-                  onClick={() => handlePaymentStatusToggle(student)}
-                  className={`px-2 py-1 text-xs font-semibold rounded border-0 cursor-pointer hover:opacity-80 ${
+                <select
+                  value={student.paymentStatus || 'due'}
+                  onChange={(e) => handlePaymentStatusUpdate(student, e.target.value)}
+                  className={`px-2 py-1 text-xs font-semibold rounded border-0 cursor-pointer ${
                     student.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
                     student.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
                   }`}
-                  title="Click to toggle payment status"
                 >
-                  {student.paymentStatus === 'paid' ? 'Paid' :
-                   student.paymentStatus === 'partial' ? 'Partial' : 'Due'}
-                </button>
+                  <option value="paid">Paid</option>
+                  <option value="partial">Partial</option>
+                  <option value="due">Due</option>
+                </select>
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                 <div className="text-sm text-gray-900">
