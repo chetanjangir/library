@@ -42,14 +42,30 @@ export default async function handler(req, res) {
         };
       });
       
+      console.log('Students map created:', Object.keys(studentsMap).length, 'students');
+      
       // Convert payments to frontend format
       const responsePayments = payments.map(payment => {
-        const studentInfo = studentsMap[payment.student_id];
-        const studentName = studentInfo ? studentInfo.name : (payment.student_name || 'Unknown Student');
+        const studentInfo = studentsMap[payment.student_id?.toString()];
+        let studentName = 'Unknown Student';
+        
+        if (studentInfo) {
+          studentName = studentInfo.name;
+        } else if (payment.student_name) {
+          studentName = payment.student_name;
+        } else {
+          // Try to find student by name in the students collection
+          const foundStudent = students.find(s => s._id.toString() === payment.student_id?.toString());
+          if (foundStudent) {
+            studentName = foundStudent.name;
+          }
+        }
+        
+        console.log(`Payment ${payment._id}: student_id=${payment.student_id}, resolved name=${studentName}`);
         
         return {
           id: payment._id.toString(),
-          studentId: payment.student_id,
+          studentId: payment.student_id?.toString(),
           studentName: studentName,
           amount: payment.amount,
           currency: payment.currency || 'INR',

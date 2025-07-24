@@ -208,15 +208,19 @@ function Students() {
       
       // Also update any related payments
       try {
+        console.log('Updating related payments for student:', student.id);
         const payments = await apiService.getPayments();
         const studentPayments = payments.filter(p => p.studentId === student.id);
+        
+        console.log('Found student payments:', studentPayments.length);
         
         for (const payment of studentPayments) {
           const paymentUpdateData = {
             ...payment,
             status: newPaymentStatus === 'paid' ? 'paid' : 'pending',
-            paidDate: newPaymentStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined
+            paidDate: newPaymentStatus === 'paid' ? new Date().toISOString().split('T')[0] : null
           };
+          console.log('Updating payment:', payment.id, paymentUpdateData);
           await apiService.updatePayment(payment.id, paymentUpdateData);
         }
       } catch (paymentError) {

@@ -23,16 +23,32 @@ function Payments() {
     loadData();
   }, []);
 
+  // Auto-refresh data every 30 seconds for real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadData();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('Loading payments and students data...');
       
       // Load students and payments
       const [studentsData, paymentsData] = await Promise.all([
         apiService.getStudents(),
         apiService.getPayments()
       ]);
+      
+      console.log('Loaded data:', {
+        students: studentsData.length,
+        payments: paymentsData.length,
+        samplePayment: paymentsData[0]
+      });
       
       if (isAdmin()) {
         // Admin sees all data
@@ -170,12 +186,20 @@ function Payments() {
         <h1 className="text-2xl font-semibold text-gray-900">
           {isAdmin() ? 'Payments Management' : 'My Payments'}
         </h1>
-        {isAdmin() && (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="w-5 h-5 mr-2" />
-            Add Payment
+        <div className="flex space-x-3">
+          <Button variant="secondary" onClick={loadData}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
           </Button>
-        )}
+          {isAdmin() && (
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="w-5 h-5 mr-2" />
+              Add Payment
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Payment Summary Cards */}
