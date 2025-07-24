@@ -92,6 +92,9 @@ export default async function handler(req, res) {
         // If seat.full exists, seat is completely occupied - don't add to available list
       }
 
+      // Sort seats by number for better UX
+      availableSeats.sort((a, b) => a.seatNumber - b.seatNumber);
+
       return res.status(200).json(availableSeats);
     }
 

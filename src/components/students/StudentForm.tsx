@@ -185,6 +185,12 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             onChange={(e) => setFormData({ ...formData, seatNumber: e.target.value ? parseInt(e.target.value) : undefined })}
           >
             <option value="">Select available seat</option>
+            {/* Show current seat if editing */}
+            {editingStudent && editingStudent.seatNumber && !availableSeats.find(s => s.seatNumber === editingStudent.seatNumber) && (
+              <option value={editingStudent.seatNumber}>
+                Seat {editingStudent.seatNumber} (Current)
+              </option>
+            )}
             {loadingSeats ? (
               <option disabled>Loading available seats...</option>
             ) : (
@@ -201,6 +207,9 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
               ? `Showing seats available for ${formData.halfDaySlot} slot`
               : 'Showing fully available seats'
             }
+            {editingStudent && editingStudent.seatNumber && (
+              <span className="block text-blue-600">Current seat: {editingStudent.seatNumber}</span>
+            )}
           </p>
         </div>
 

@@ -181,6 +181,59 @@ function Students() {
     }
   };
 
+  const handleTogglePaymentStatus = async (student: Student) => {
+    try {
+      let newPaymentStatus: 'paid' | 'due' | 'partial';
+      let newPaidAmount = student.paidAmount || 0;
+      const totalAmount = student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount;
+      
+      // Toggle payment status
+      if (student.paymentStatus === 'paid') {
+        newPaymentStatus = 'due';
+        newPaidAmount = 0;
+      } else {
+        newPaymentStatus = 'paid';
+        newPaidAmount = totalAmount;
+      }
+      
+      const newBalanceAmount = Math.max(0, totalAmount - newPaidAmount);
+      
+      const updateData = {
+        ...student,
+        paymentStatus: newPaymentStatus,
+        paidAmount: newPaidAmount,
+        balanceAmount: newBalanceAmount
+      };
+
+      await apiService.updateStudent(student.id, updateData);
+      
+      // Also update any related payments
+      try {
+        const payments = await apiService.getPayments();
+        const studentPayments = payments.filter(p => p.studentId === student.id);
+        
+        for (const payment of studentPayments) {
+          const paymentUpdateData = {
+            ...payment,
+            status: newPaymentStatus === 'paid' ? 'paid' : 'pending',
+            paidDate: newPaymentStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined
+          };
+          await apiService.updatePayment(payment.id, paymentUpdateData);
+        }
+      } catch (paymentError) {
+        console.error('Error updating related payments:', paymentError);
+      }
+      
+      await loadStudents();
+      alert(`Payment status updated to ${newPaymentStatus} for ${student.name}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update payment status';
+      setError(errorMessage);
+      alert(errorMessage);
+      console.error('Error updating payment status:', err);
+    }
+  };
+
   const getCurrencySymbol = (currency: string) => {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
     return symbols[currency as keyof typeof symbols] || currency;
@@ -367,6 +420,7 @@ function Students() {
               onDelete={handleDeleteStudent}
               onUpdateBalance={handleUpdateBalance}
               onUpdateStatus={handleUpdateStatus}
+              onTogglePaymentStatus={handleTogglePaymentStatus}
             />
           </div>
         )}

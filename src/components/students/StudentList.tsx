@@ -10,9 +10,10 @@ interface StudentListProps {
   onDelete: (student: Student) => void;
   onUpdateBalance: (student: Student, amount: number) => void;
   onUpdateStatus: (student: Student, status: 'active' | 'inactive' | 'expired') => void;
+  onTogglePaymentStatus: (student: Student) => void;
 }
 
-function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus }: StudentListProps) {
+function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus, onTogglePaymentStatus }: StudentListProps) {
   const [balanceInputs, setBalanceInputs] = React.useState<{[key: string]: string}>({});
   const [statusUpdates, setStatusUpdates] = React.useState<{[key: string]: string}>({});
 
@@ -63,6 +64,10 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
     onUpdateStatus(student, newStatus as 'active' | 'inactive' | 'expired');
   };
 
+  const handlePaymentStatusToggle = (student: Student) => {
+    onTogglePaymentStatus(student);
+  };
+
   return (
     <div className="overflow-x-auto -mx-4 sm:mx-0">
       <table className="min-w-full divide-y divide-gray-200">
@@ -71,11 +76,13 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Contact</th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Start Date</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seat</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Plan</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Add Balance</th>
+            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pay Status</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Subscription</th>
             <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -99,6 +106,11 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                 {student.mobile}
+              </td>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                <div className="text-sm text-gray-900">
+                  {new Date(student.startDate || student.joinDate).toLocaleDateString()}
+                </div>
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                 <div className="text-sm text-gray-900">
@@ -149,9 +161,25 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                     title="Add Balance"
                     disabled={!balanceInputs[student.id] || parseFloat(balanceInputs[student.id]) <= 0}
                   >
-                    <DollarSign className="w-4 h-4" />
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </button>
                 </div>
+              </td>
+              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                <button
+                  onClick={() => handlePaymentStatusToggle(student)}
+                  className={`px-2 py-1 text-xs font-semibold rounded border-0 cursor-pointer hover:opacity-80 ${
+                    student.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                    student.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}
+                  title="Click to toggle payment status"
+                >
+                  {student.paymentStatus === 'paid' ? 'Paid' :
+                   student.paymentStatus === 'partial' ? 'Partial' : 'Due'}
+                </button>
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                 <div className="text-sm text-gray-900">
