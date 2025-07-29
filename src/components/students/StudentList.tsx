@@ -116,13 +116,23 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                   <div className="text-sm font-medium text-gray-900 truncate max-w-32 sm:max-w-none">{student.name}</div>
                   <div className="text-sm text-gray-500 sm:hidden truncate max-w-32">{student.mobile}</div>
                   <div className="text-sm text-gray-500 hidden sm:block truncate">{student.email}</div>
+                  {student.aadhaarNumber && (
+                    <div className="text-xs text-gray-500">Aadhaar: {student.aadhaarNumber}</div>
+                  )}
                   {student.biometricId && (
                     <div className="text-xs text-gray-500">Bio ID: {student.biometricId}</div>
                   )}
                 </div>
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
-                {student.mobile}
+                <div>
+                  <div>{student.mobile}</div>
+                  {student.address && (
+                    <div className="text-xs text-gray-500 truncate max-w-32" title={student.address}>
+                      {student.address}
+                    </div>
+                  )}
+                </div>
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
                 <div className="text-sm text-gray-900">

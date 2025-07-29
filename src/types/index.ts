@@ -3,6 +3,8 @@ export interface Student {
   name: string;
   email: string;
   mobile: string;
+  aadhaarNumber?: string;
+  address?: string;
   biometricId?: string;
   joinDate: string;
   startDate: string;
