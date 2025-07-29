@@ -103,7 +103,11 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {sortedStudents.map((student, index) => (
-            <tr key={student.id} className={isExpired(student.subscriptionEndDate) ? 'bg-red-50' : isExpiringSoon(student.subscriptionEndDate) ? 'bg-yellow-50' : ''}>
+            <tr key={student.id} className={
+              isExpired(student.subscriptionEndDate) ? 'bg-red-50' : 
+              isExpiringSoon(student.subscriptionEndDate) ? 'bg-yellow-50' : 
+              !student.seatNumber ? 'bg-orange-50 border-l-4 border-orange-400' : ''
+            }>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {index + 1}
               </td>

@@ -15,8 +15,8 @@ export interface Student {
   subscriptionEndDate: string;
   currency: 'USD' | 'EUR' | 'INR' | 'GBP';
   monthlyAmount: number;
-  halfDayAmount: number;
-  fullDayAmount: number;
+  halfDayAmount?: number;
+  fullDayAmount?: number;
   paymentStatus?: 'paid' | 'due' | 'partial';
   paidAmount?: number;
   balanceAmount?: number;

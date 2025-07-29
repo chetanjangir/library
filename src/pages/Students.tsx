@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, MessageCircle, AlertTriangle, Search, Filter } from 'lucide-react';
+import { Plus, MessageCircle, AlertTriangle, Search, Filter, Calendar, X } from 'lucide-react';
 import Button from '../components/ui/Button';
 import StudentForm from '../components/students/StudentForm';
 import StudentList from '../components/students/StudentList';
@@ -17,6 +17,11 @@ function Students() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'expired'>('all');
+  const [seatFilter, setSeatFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'due' | 'partial'>('all');
+  const [expiryFilter, setExpiryFilter] = useState<number | null>(null);
+  const [showExpiryInput, setShowExpiryInput] = useState(false);
+  const [customExpiryDays, setCustomExpiryDays] = useState<string>('');
   const { toasts, removeToast, showSuccess, showError } = useToast();
 
   // Load students on component mount
@@ -293,8 +298,50 @@ function Students() {
     
     const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    const matchesSeat = seatFilter === 'all' || 
+                       (seatFilter === 'assigned' && student.seatNumber) ||
+                       (seatFilter === 'unassigned' && !student.seatNumber);
+    
+    const matchesPayment = paymentFilter === 'all' || 
+                          (student.paymentStatus || 'due') === paymentFilter;
+    
+    let matchesExpiry = true;
+    if (expiryFilter !== null) {
+      const now = new Date();
+      const endDate = new Date(student.subscriptionEndDate);
+      const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      matchesExpiry = diffDays <= expiryFilter && diffDays >= 0;
+    }
+    
+    return matchesSearch && matchesStatus && matchesSeat && matchesPayment && matchesExpiry;
   });
+
+  const handleApplyExpiryFilter = () => {
+    const days = parseInt(customExpiryDays);
+    if (days > 0) {
+      setExpiryFilter(days);
+      setShowExpiryInput(false);
+      setCustomExpiryDays('');
+    }
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setSeatFilter('all');
+    setPaymentFilter('all');
+    setExpiryFilter(null);
+    setCustomExpiryDays('');
+    setShowExpiryInput(false);
+  };
+
+  const activeFiltersCount = [
+    searchTerm,
+    statusFilter !== 'all' ? statusFilter : null,
+    seatFilter !== 'all' ? seatFilter : null,
+    paymentFilter !== 'all' ? paymentFilter : null,
+    expiryFilter !== null ? `${expiryFilter}d` : null
+  ].filter(Boolean).length;
 
   if (loading) {
     return (
@@ -327,20 +374,21 @@ function Students() {
         
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
           {/* Search and Filter */}
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Search students..."
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-48"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             
+            {/* Status Filter */}
             <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
             >
@@ -349,6 +397,74 @@ function Students() {
               <option value="inactive">Inactive</option>
               <option value="expired">Expired</option>
             </select>
+            
+            {/* Seat Filter */}
+            <select
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              value={seatFilter}
+              onChange={(e) => setSeatFilter(e.target.value as typeof seatFilter)}
+            >
+              <option value="all">All Seats</option>
+              <option value="assigned">Assigned</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+            
+            {/* Payment Filter */}
+            <select
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value as typeof paymentFilter)}
+            >
+              <option value="all">All Payments</option>
+              <option value="paid">Paid</option>
+              <option value="due">Due</option>
+              <option value="partial">Partial</option>
+            </select>
+            
+            {/* Expiry Filter */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExpiryInput(!showExpiryInput)}
+                className={`px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm flex items-center ${
+                  expiryFilter !== null ? 'bg-indigo-50 border-indigo-300' : ''
+                }`}
+              >
+                <Calendar className="w-4 h-4 mr-1" />
+                {expiryFilter !== null ? `Expiring in ${expiryFilter}d` : 'Expiry Filter'}
+              </button>
+              
+              {showExpiryInput && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-3 z-10 min-w-48">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Days"
+                      className="w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+                      value={customExpiryDays}
+                      onChange={(e) => setCustomExpiryDays(e.target.value)}
+                    />
+                    <button
+                      onClick={handleApplyExpiryFilter}
+                      className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExpiryFilter(null);
+                        setShowExpiryInput(false);
+                        setCustomExpiryDays('');
+                      }}
+                      className="px-2 py-1 text-gray-500 hover:text-gray-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Show students expiring in X days</p>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Action Buttons */}
@@ -402,22 +518,24 @@ function Students() {
               <div className="flex justify-between items-center">
                 <p className="text-sm text-gray-600">
                   Showing {filteredStudents.length} of {students.length} students
+                  {activeFiltersCount > 0 && (
+                    <span className="ml-2 px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
+                      {activeFiltersCount} filter{activeFiltersCount > 1 ? 's' : ''} active
+                    </span>
+                  )}
                 </p>
-                {(searchTerm || statusFilter !== 'all') && (
+                {activeFiltersCount > 0 && (
                   <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setStatusFilter('all');
-                    }}
+                    onClick={clearAllFilters}
                     className="text-sm text-indigo-600 hover:text-indigo-800"
                   >
-                    Clear filters
+                    Clear all filters
                   </button>
                 )}
               </div>
             </div>
             <StudentList 
-              students={filteredStudents} 
+              students={filteredStudents}
               onEdit={handleEditStudent}
               onSendReminder={handleSendReminder}
               onDelete={handleDeleteStudent}

@@ -23,9 +23,9 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     halfDaySlot: editingStudent?.halfDaySlot || 'morning',
     status: editingStudent?.status || 'active',
     currency: editingStudent?.currency || 'INR',
-    monthlyAmount: editingStudent?.monthlyAmount || 100,
-    halfDayAmount: editingStudent?.halfDayAmount || 60,
-    fullDayAmount: editingStudent?.fullDayAmount || 100,
+    monthlyAmount: editingStudent?.monthlyAmount || 1000,
+    halfDayAmount: editingStudent?.halfDayAmount || 600,
+    fullDayAmount: editingStudent?.fullDayAmount || 1000,
     seatNumber: editingStudent?.seatNumber || prefilledSeatNumber || undefined,
     paymentStatus: editingStudent?.paymentStatus || 'due',
     paidAmount: editingStudent?.paidAmount || 0,
@@ -267,40 +267,19 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Monthly Amount</label>
+          <label className="block text-sm font-medium text-gray-700">Monthly Amount *</label>
           <input
             type="number"
             min="0"
             step="0.01"
+            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
             value={formData.monthlyAmount}
             onChange={(e) => setFormData({ ...formData, monthlyAmount: parseFloat(e.target.value) })}
           />
+          <p className="mt-1 text-sm text-gray-500">Base monthly fee for this student</p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Half Day Amount</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.halfDayAmount}
-            onChange={(e) => setFormData({ ...formData, halfDayAmount: parseFloat(e.target.value) })}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Full Day Amount</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.fullDayAmount}
-            onChange={(e) => setFormData({ ...formData, fullDayAmount: parseFloat(e.target.value) })}
-          />
-        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Payment Status</label>
@@ -355,7 +334,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-blue-600">Total Amount:</span>
-                <p className="font-medium">{getCurrencySymbol(formData.currency)}{totalAmount}</p>
+                <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.monthlyAmount}</p>
               </div>
               <div>
                 <span className="text-blue-600">Paid Amount:</span>
