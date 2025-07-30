@@ -220,10 +220,22 @@ function Students() {
         console.log('Found student payments:', studentPayments.length);
         
         for (const payment of studentPayments) {
+          let paymentStatus = 'pending';
+          let paidDate = null;
+          
+          if (newPaymentStatus === 'paid') {
+            paymentStatus = 'paid';
+            paidDate = new Date().toISOString().split('T')[0];
+          } else if (newPaymentStatus === 'partial') {
+            paymentStatus = 'pending';
+          } else {
+            paymentStatus = 'pending';
+          }
+          
           const paymentUpdateData = {
             ...payment,
-            status: newPaymentStatus === 'paid' ? 'paid' : 'pending',
-            paidDate: newPaymentStatus === 'paid' ? new Date().toISOString().split('T')[0] : null
+            status: paymentStatus,
+            paidDate: paidDate
           };
           console.log('Updating payment:', payment.id, paymentUpdateData);
           await apiService.updatePayment(payment.id, paymentUpdateData);
@@ -233,9 +245,13 @@ function Students() {
       }
       
       await loadStudents();
+      
+      // Show success notification
+      showSuccess('Payment Status Updated', `${student.name} payment status changed to ${newPaymentStatus}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update payment status';
       setError(errorMessage);
+      showError('Update Failed', errorMessage);
       throw new Error(errorMessage);
       console.error('Error updating payment status:', err);
     }

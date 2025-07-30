@@ -26,6 +26,7 @@ function Payments() {
   // Auto-refresh data every 30 seconds for real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
+      console.log('Auto-refreshing payment data...');
       loadData();
     }, 30000);
     
@@ -47,7 +48,9 @@ function Payments() {
       console.log('Loaded data:', {
         students: studentsData.length,
         payments: paymentsData.length,
-        samplePayment: paymentsData[0]
+        samplePayment: paymentsData[0],
+        paidPayments: paymentsData.filter(p => p.status === 'paid').length,
+        pendingPayments: paymentsData.filter(p => p.status === 'pending').length
       });
       
       if (isAdmin()) {
@@ -111,6 +114,7 @@ function Payments() {
       const payment = payments.find(p => p.id === paymentId);
       if (!payment) return;
 
+      // Update payment record
       const updateData = {
         ...payment,
         status: 'paid',
@@ -118,6 +122,20 @@ function Payments() {
       };
 
       await apiService.updatePayment(paymentId, updateData);
+      
+      // Also update the student's payment status
+      if (payment.studentId) {
+        const student = students.find(s => s.id === payment.studentId);
+        if (student) {
+          const studentUpdateData = {
+            ...student,
+            paymentStatus: 'paid',
+            paidAmount: payment.amount,
+            balanceAmount: 0
+          };
+          await apiService.updateStudent(payment.studentId, studentUpdateData);
+        }
+      }
       
       await loadData();
       showSuccess('Payment Updated', 'Payment marked as paid successfully!');

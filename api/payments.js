@@ -27,41 +27,45 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       console.log('Fetching payments from MongoDB...');
       
+      // Get all students to enrich payment data
+      const students = await studentsCollection.find({}).toArray();
+      console.log(`Found ${students.length} students in database`);
+      
       // Get all payments from database
       const payments = await paymentsCollection.find({}).sort({ due_date: -1 }).toArray();
       console.log(`Found ${payments.length} payments in database`);
       
-      // Get all students to enrich payment data
-      const students = await studentsCollection.find({}).toArray();
-      const studentsMap = {};
-      students.forEach(student => {
-        studentsMap[student._id.toString()] = {
-          name: student.name,
-          email: student.email,
-          mobile: student.mobile
-        };
-      });
-      
-      console.log('Students map created:', Object.keys(studentsMap).length, 'students');
-      
       // Convert payments to frontend format
       const responsePayments = payments.map(payment => {
-        const studentInfo = studentsMap[payment.student_id?.toString()];
-        let studentName = 'Unknown Student';
+        // Find student by ID first, then by name if ID not found
+        let student = students.find(s => s._id.toString() === payment.student_id?.toString());
         
-        if (studentInfo) {
-          studentName = studentInfo.name;
-        } else if (payment.student_name) {
-          studentName = payment.student_name;
-        } else {
-          // Try to find student by name in the students collection
-          const foundStudent = students.find(s => s._id.toString() === payment.student_id?.toString());
-          if (foundStudent) {
-            studentName = foundStudent.name;
+        if (!student && payment.student_name) {
+          student = students.find(s => s.name === payment.student_name);
+        }
+        
+        let studentName = 'Unknown Student';
+        let paymentStatus = payment.status || 'pending';
+        let paidDate = payment.paid_date;
+        
+        if (student) {
+          studentName = student.name;
+          
+          // Sync payment status with student payment status
+          if (student.payment_status === 'paid') {
+            paymentStatus = 'paid';
+            // Set paid date to today if not already set
+            if (!paidDate) {
+              paidDate = new Date();
+            }
+          } else if (student.payment_status === 'partial') {
+            paymentStatus = 'pending'; // Show as pending for partial payments
+          } else {
+            paymentStatus = 'pending'; // Due status shows as pending
           }
         }
         
-        console.log(`Payment ${payment._id}: student_id=${payment.student_id}, resolved name=${studentName}`);
+        console.log(`Payment ${payment._id}: student_id=${payment.student_id}, resolved name=${studentName}, status=${paymentStatus}`);
         
         return {
           id: payment._id.toString(),
@@ -70,8 +74,8 @@ export default async function handler(req, res) {
           amount: payment.amount,
           currency: payment.currency || 'INR',
           dueDate: payment.due_date ? payment.due_date.toISOString().split('T')[0] : null,
-          paidDate: payment.paid_date ? payment.paid_date.toISOString().split('T')[0] : null,
-          status: payment.status || 'pending',
+          paidDate: paidDate ? (paidDate instanceof Date ? paidDate.toISOString().split('T')[0] : new Date(paidDate).toISOString().split('T')[0]) : null,
+          status: paymentStatus,
           planType: payment.plan_type || 'monthly',
           dayType: payment.day_type || 'full',
           createdAt: payment.created_at,
