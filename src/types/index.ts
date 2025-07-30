@@ -1,6 +1,7 @@
 export interface Student {
   id: string;
   name: string;
+  fatherName?: string;
   email: string;
   mobile: string;
   aadhaarNumber?: string;

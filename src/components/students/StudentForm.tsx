@@ -13,34 +13,81 @@ interface StudentFormProps {
 function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }: StudentFormProps) {
   const [formData, setFormData] = useState({
     name: editingStudent?.name || '',
-    email: editingStudent?.email || '',
+    fatherName: editingStudent?.fatherName || '',
     mobile: editingStudent?.mobile || '',
+    email: editingStudent?.email || '',
+    biometricId: editingStudent?.biometricId || '',
     aadhaarNumber: editingStudent?.aadhaarNumber || '',
     address: editingStudent?.address || '',
-    biometricId: editingStudent?.biometricId || '',
     startDate: editingStudent?.startDate ? new Date(editingStudent.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     endDate: editingStudent?.endDate ? new Date(editingStudent.endDate).toISOString().split('T')[0] : '',
+    seatNumber: editingStudent?.seatNumber || prefilledSeatNumber || undefined,
     planType: editingStudent?.planType || 'monthly',
     dayType: editingStudent?.dayType || 'full',
     halfDaySlot: editingStudent?.halfDaySlot || 'morning',
-    status: editingStudent?.status || 'active',
     currency: editingStudent?.currency || 'INR',
     monthlyAmount: editingStudent?.monthlyAmount || 1000,
-    halfDayAmount: editingStudent?.halfDayAmount || 600,
-    fullDayAmount: editingStudent?.fullDayAmount || 1000,
-    seatNumber: editingStudent?.seatNumber || prefilledSeatNumber || undefined,
     paymentStatus: editingStudent?.paymentStatus || 'due',
     paidAmount: editingStudent?.paidAmount || 0,
-    balanceAmount: editingStudent?.balanceAmount || 0
+    balanceAmount: editingStudent?.balanceAmount || 0,
+    status: editingStudent?.status || 'active'
   });
 
   const [availableSeats, setAvailableSeats] = useState<any[]>([]);
   const [loadingSeats, setLoadingSeats] = useState(false);
+  const [settings, setSettings] = useState<any>(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
-  // Load available seats when component mounts or day type changes
+  // Load settings and available seats when component mounts
+  React.useEffect(() => {
+    loadSettings();
+    loadAvailableSeats();
+  }, []);
+
+  // Reload available seats when day type or slot changes
   React.useEffect(() => {
     loadAvailableSeats();
   }, [formData.dayType, formData.halfDaySlot]);
+
+  // Update monthly amount when settings change or day type changes
+  React.useEffect(() => {
+    if (settings && !editingStudent) {
+      const defaultAmount = formData.dayType === 'half' 
+        ? settings.fees?.halfDayFee || 600
+        : settings.fees?.fullDayFee || 1000;
+      
+      setFormData(prev => ({
+        ...prev,
+        monthlyAmount: defaultAmount,
+        currency: settings.fees?.currency || 'INR'
+      }));
+    }
+  }, [settings, formData.dayType, editingStudent]);
+
+  const loadSettings = async () => {
+    try {
+      setLoadingSettings(true);
+      const settingsData = await apiService.getSettings();
+      setSettings(settingsData);
+      
+      // Set default values from settings if not editing
+      if (!editingStudent && settingsData) {
+        const defaultAmount = formData.dayType === 'half' 
+          ? settingsData.fees?.halfDayFee || 600
+          : settingsData.fees?.fullDayFee || 1000;
+        
+        setFormData(prev => ({
+          ...prev,
+          monthlyAmount: defaultAmount,
+          currency: settingsData.fees?.currency || 'INR'
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
 
   const loadAvailableSeats = async () => {
     try {
@@ -67,8 +114,15 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     }
   };
 
-  // Calculate total amount based on day type
-  const totalAmount = formData.dayType === 'half' ? formData.halfDayAmount : formData.fullDayAmount;
+  // Calculate balance amount when paid amount or monthly amount changes
+  const calculatedBalance = Math.max(0, formData.monthlyAmount - formData.paidAmount);
+
+  React.useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      balanceAmount: calculatedBalance
+    }));
+  }, [formData.paidAmount, formData.monthlyAmount, calculatedBalance]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,35 +142,38 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
       }
     }
 
+    // Calculate half day and full day amounts based on monthly amount
+    const halfDayAmount = formData.monthlyAmount * 0.6;
+    const fullDayAmount = formData.monthlyAmount;
+
     onSubmit({
       ...formData,
       joinDate: formData.startDate,
-      startDate: formData.startDate,
-      endDate: formData.endDate || subscriptionEndDate.toISOString(),
       subscriptionEndDate: subscriptionEndDate.toISOString(),
+      halfDayAmount,
+      fullDayAmount,
     });
   };
-
-  // Calculate balance amount when paid amount changes
-  const calculatedBalance = totalAmount - formData.paidAmount;
-
-  React.useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      balanceAmount: Math.max(0, calculatedBalance)
-    }));
-  }, [formData.paidAmount, formData.dayType, formData.halfDayAmount, formData.fullDayAmount, calculatedBalance]);
 
   const getCurrencySymbol = (currency: string) => {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
     return symbols[currency as keyof typeof symbols] || currency;
   };
 
+  if (loadingSettings) {
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="text-lg">Loading form settings...</div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Row 1: Student Name, Father's Name, Mobile Number */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Name *</label>
+          <label className="block text-sm font-medium text-gray-700">Student Name *</label>
           <input
             type="text"
             required
@@ -127,13 +184,12 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700">Email *</label>
+          <label className="block text-sm font-medium text-gray-700">Father's Name</label>
           <input
-            type="email"
-            required
+            type="text"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            value={formData.fatherName}
+            onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
           />
         </div>
 
@@ -147,7 +203,35 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
           />
         </div>
+      </div>
 
+      {/* Row 2: Email, Biometric ID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Email *</label>
+          <input
+            type="email"
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Biometric ID</label>
+          <input
+            type="text"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+            value={formData.biometricId}
+            onChange={(e) => setFormData({ ...formData, biometricId: e.target.value })}
+            placeholder="Enter biometric ID"
+          />
+        </div>
+      </div>
+
+      {/* Row 3: Aadhaar Card Number, Address */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Aadhaar Card Number</label>
           <input
@@ -160,16 +244,21 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             placeholder="Enter 12-digit Aadhaar number"
           />
         </div>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700">Biometric ID</label>
+          <label className="block text-sm font-medium text-gray-700">Address</label>
           <input
             type="text"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.biometricId}
-            onChange={(e) => setFormData({ ...formData, biometricId: e.target.value })}
-            placeholder="Enter biometric ID"
+            value={formData.address}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            placeholder="Enter complete address"
           />
         </div>
+      </div>
+
+      {/* Row 4: Start Date, End Date */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Start Date *</label>
           <input
@@ -181,17 +270,6 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
           />
         </div>
 
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Address</label>
-          <textarea
-            rows={3}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            placeholder="Enter complete address"
-          />
-        </div>
-        
         <div>
           <label className="block text-sm font-medium text-gray-700">End Date</label>
           <input
@@ -202,6 +280,10 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
           />
           <p className="mt-1 text-sm text-gray-500">Leave empty to auto-calculate based on plan type</p>
         </div>
+      </div>
+
+      {/* Row 5: Seat Number, Plan Type */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Seat Number</label>
           <select
@@ -232,9 +314,6 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
               ? `Showing seats available for ${formData.halfDaySlot} slot`
               : 'Showing fully available seats'
             }
-            {editingStudent && editingStudent.seatNumber && (
-              <span className="block text-blue-600">Current seat: {editingStudent.seatNumber}</span>
-            )}
           </p>
         </div>
 
@@ -250,7 +329,10 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             <option value="yearly">Yearly</option>
           </select>
         </div>
+      </div>
 
+      {/* Row 6: Day Type, Currency */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Day Type</label>
           <select
@@ -261,21 +343,17 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             <option value="full">Full Day</option>
             <option value="half">Half Day</option>
           </select>
-        </div>
-
-        {formData.dayType === 'half' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Half Day Slot</label>
+          {formData.dayType === 'half' && (
             <select
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+              className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
               value={formData.halfDaySlot}
               onChange={(e) => setFormData({ ...formData, halfDaySlot: e.target.value as 'morning' | 'evening' })}
             >
               <option value="morning">Morning (9 AM - 2 PM)</option>
               <option value="evening">Evening (2 PM - 9 PM)</option>
             </select>
-          </div>
-        )}
+          )}
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Currency</label>
@@ -290,21 +368,36 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             <option value="GBP">GBP (£)</option>
           </select>
         </div>
+      </div>
 
+      {/* Row 7: Monthly Amount, Payment Status */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Monthly Amount *</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.monthlyAmount}
-            onChange={(e) => setFormData({ ...formData, monthlyAmount: parseFloat(e.target.value) })}
-          />
-          <p className="mt-1 text-sm text-gray-500">Base monthly fee for this student</p>
+          <div className="mt-1 relative rounded-md shadow-sm">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(formData.currency)}</span>
+            </div>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              value={formData.monthlyAmount}
+              onChange={(e) => setFormData({ ...formData, monthlyAmount: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          {settings && (
+            <p className="mt-1 text-sm text-gray-500">
+              Default: {getCurrencySymbol(formData.currency)}
+              {formData.dayType === 'half' 
+                ? settings.fees?.halfDayFee || 600
+                : settings.fees?.fullDayFee || 1000
+              } (from settings)
+            </p>
+          )}
         </div>
-
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Payment Status</label>
@@ -318,7 +411,10 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             <option value="paid">Paid</option>
           </select>
         </div>
+      </div>
 
+      {/* Row 8: Paid Amount, Balance Amount */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Paid Amount</label>
           <div className="mt-1 relative rounded-md shadow-sm">
@@ -328,7 +424,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             <input
               type="number"
               min="0"
-              max={totalAmount}
+              max={formData.monthlyAmount}
               step="0.01"
               className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               value={formData.paidAmount}
@@ -350,26 +446,25 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
               readOnly
             />
           </div>
-          <p className="mt-1 text-sm text-gray-500">Auto-calculated: Total - Paid</p>
+          <p className="mt-1 text-sm text-gray-500">Auto-calculated: Monthly Amount - Paid Amount</p>
         </div>
+      </div>
 
-        <div className="md:col-span-2">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Payment Summary</h4>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-blue-600">Total Amount:</span>
-                <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.monthlyAmount}</p>
-              </div>
-              <div>
-                <span className="text-blue-600">Paid Amount:</span>
-                <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.paidAmount}</p>
-              </div>
-              <div>
-                <span className="text-blue-600">Balance:</span>
-                <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.balanceAmount}</p>
-              </div>
-            </div>
+      {/* Payment Summary */}
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <h4 className="text-sm font-medium text-blue-900 mb-2">Payment Summary</h4>
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="text-blue-600">Monthly Amount:</span>
+            <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.monthlyAmount}</p>
+          </div>
+          <div>
+            <span className="text-blue-600">Paid Amount:</span>
+            <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.paidAmount}</p>
+          </div>
+          <div>
+            <span className="text-blue-600">Balance:</span>
+            <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.balanceAmount}</p>
           </div>
         </div>
       </div>

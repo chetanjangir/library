@@ -54,6 +54,7 @@ export default async function handler(req, res) {
       const responseStudents = students.map(student => ({
         id: student._id.toString(),
         name: student.name,
+        fatherName: student.father_name,
         email: student.email,
         mobile: student.mobile,
         aadhaarNumber: student.aadhaar_number,
@@ -87,6 +88,7 @@ export default async function handler(req, res) {
       
       const studentData = {
         name: req.body.name,
+        father_name: req.body.fatherName,
         email: req.body.email,
         mobile: req.body.mobile,
         aadhaar_number: req.body.aadhaarNumber,
@@ -150,6 +152,7 @@ export default async function handler(req, res) {
       const responseStudent = {
         id: newStudent._id.toString(),
         name: newStudent.name,
+        fatherName: newStudent.father_name,
         email: newStudent.email,
         mobile: newStudent.mobile,
         aadhaarNumber: newStudent.aadhaar_number,
@@ -232,6 +235,7 @@ export default async function handler(req, res) {
       
       const updateDoc = {
         name: updateData.name,
+        father_name: updateData.fatherName,
         email: updateData.email,
         mobile: updateData.mobile,
         aadhaar_number: updateData.aadhaarNumber,
@@ -271,6 +275,7 @@ export default async function handler(req, res) {
       const responseStudent = {
         id: updatedStudent._id.toString(),
         name: updatedStudent.name,
+        fatherName: updatedStudent.father_name,
         email: updatedStudent.email,
         mobile: updatedStudent.mobile,
         aadhaarNumber: updatedStudent.aadhaar_number,
