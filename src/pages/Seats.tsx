@@ -7,7 +7,7 @@ import type { Seat, Student } from '../types';
 const generateVacantSeats = (): Seat[] => {
   const seats: Seat[] = [];
   
-  for (let i = 1; i <= 100; i++) {
+  for (let i = 1; i <= 120; i++) {
     seats.push({
       id: i,
       isOccupied: false,
@@ -50,6 +50,10 @@ function Seats() {
     setSelectedSeat(seat || null);
   };
 
+  const handleAddStudent = (seatNumber: number) => {
+    // Navigate to students page with seat number pre-filled
+    window.location.href = `/students?seat=${seatNumber}`;
+  };
   const vacantSeats = seats.filter(s => !s.isOccupied).length;
   const occupiedSeats = seats.filter(s => s.isOccupied).length;
   const halfDaySeats = seats.filter(s => s.type === 'half-shared').length;
@@ -71,15 +75,20 @@ function Seats() {
       )}
       
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Seat Management</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Seat Management (120 Seats)</h1>
         <div className="text-sm text-gray-600">
-          Total: 100 | Occupied: {occupiedSeats} | Vacant: {vacantSeats}
+          Total: 120 | Occupied: {occupiedSeats} | Vacant: {vacantSeats}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <SeatMap seats={seats} onSeatClick={handleSeatClick} onRefresh={loadSeats} />
+          <SeatMap 
+            seats={seats} 
+            onSeatClick={handleSeatClick} 
+            onAddStudent={handleAddStudent}
+            onRefresh={loadSeats} 
+          />
         </div>
         
         <div className="space-y-6">
@@ -105,7 +114,7 @@ function Seats() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Occupancy Rate:</span>
-                <span className="font-medium">{Math.round((occupiedSeats / 100) * 100)}%</span>
+                <span className="font-medium">{Math.round((occupiedSeats / 120) * 100)}%</span>
               </div>
             </div>
           </div>
@@ -123,6 +132,12 @@ function Seats() {
                   <p className="text-sm text-gray-500 mt-2">
                     This seat is available for allocation
                   </p>
+                  <button
+                    onClick={() => handleAddStudent(selectedSeat.id)}
+                    className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Add Student to This Seat
+                  </button>
                 </div>
               ) : selectedSeat.type === 'full' && selectedSeat.student ? (
                 <div className="space-y-3">
@@ -151,6 +166,12 @@ function Seats() {
                     ) : (
                       <div className="bg-green-50 p-3 rounded text-green-700">
                         Available
+                        <button
+                          onClick={() => handleAddStudent(selectedSeat.id)}
+                          className="ml-2 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                        >
+                          Add Student
+                        </button>
                       </div>
                     )}
                   </div>
@@ -166,6 +187,12 @@ function Seats() {
                     ) : (
                       <div className="bg-green-50 p-3 rounded text-green-700">
                         Available
+                        <button
+                          onClick={() => handleAddStudent(selectedSeat.id)}
+                          className="ml-2 px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                        >
+                          Add Student
+                        </button>
                       </div>
                     )}
                   </div>

@@ -58,15 +58,16 @@ class ApiService {
   }
 
   async updateStudent(id: string, student: any) {
-    return this.request(`/students/${id}`, {
+    return this.request('/students', {
       method: 'PUT',
-      body: JSON.stringify(student),
+      body: JSON.stringify({ id, ...student }),
     });
   }
 
   async deleteStudent(id: string) {
-    return this.request(`/students/${id}`, {
+    return this.request('/students', {
       method: 'DELETE',
+      body: JSON.stringify({ id }),
     });
   }
 
@@ -87,11 +88,19 @@ class ApiService {
     });
   }
 
-  async updatePayment(id: string, payment: any) {
-    return this.request(`/payments/${id}`, {
+  async updatePayment(id: string, updates: any) {
+    return this.request('/payments', {
       method: 'PUT',
-      body: JSON.stringify(payment),
+      body: JSON.stringify({ id, ...updates }),
     });
+  }
+
+  async deletePayment(id: string) {
+    const result = await this.request('/payments', {
+      method: 'DELETE',
+      body: JSON.stringify({ id }),
+    });
+    return result;
   }
 
   // Seats API
@@ -100,9 +109,9 @@ class ApiService {
       return await this.request('/seats');
     } catch (error) {
       console.error('Failed to fetch seats:', error);
-      // Return 100 vacant seats as fallback
+      // Return 120 vacant seats as fallback
       const fallbackSeats = [];
-      for (let i = 1; i <= 100; i++) {
+      for (let i = 1; i <= 120; i++) {
         fallbackSeats.push({
           id: i,
           seatNumber: i,
@@ -114,22 +123,99 @@ class ApiService {
     }
   }
 
+  async getAvailableSeats() {
+    try {
+      return await this.request('/seats-availability');
+    } catch (error) {
+      console.error('Failed to fetch available seats:', error);
+      // Return all 120 seats as available fallback
+      const fallbackSeats = [];
+      for (let i = 1; i <= 120; i++) {
+        fallbackSeats.push({
+          seatNumber: i,
+          type: 'vacant',
+          availability: 'full'
+        });
+      }
+      return fallbackSeats;
+    }
+  }
+
   // WhatsApp API
   async sendWhatsAppMessage(mobile: string, message: string, type = 'welcome') {
     try {
-      // Simulate WhatsApp message sending
-      console.log('WhatsApp message:', { mobile, message, type });
-      return { success: true, message: 'WhatsApp message sent (simulated)' };
+      // Use our API endpoint for WhatsApp messages
+      const response = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: type,
+          mobile: mobile,
+          studentName: 'Student', // This should be passed as parameter
+          message: message
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return { success: result.success, message: result.message || 'WhatsApp message sent' };
+      } else {
+        const error = await response.json();
+        return { success: false, error: error.error || 'Failed to send WhatsApp message' };
+      }
     } catch (error) {
       console.error('Failed to send WhatsApp message:', error);
-      // Don't throw error for WhatsApp failures
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
   async sendPaymentReminder(mobile: string, name: string, amount: number, dueDate: string) {
-    const message = `Dear ${name}, your payment of $${amount} is due on ${dueDate}. Please make the payment to continue using our library services.`;
-    return this.sendWhatsAppMessage(mobile, message, 'reminder');
+    try {
+      const response = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'reminder',
+          mobile: mobile,
+          studentName: name,
+          amount: amount,
+          currency: 'INR',
+          dueDate: dueDate
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return { success: result.success, message: result.message || 'Payment reminder sent' };
+      } else {
+        const error = await response.json();
+        return { success: false, error: error.error || 'Failed to send payment reminder' };
+      }
+    } catch (error) {
+      console.error('Failed to send payment reminder:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // Settings API
+  async getSettings() {
+    try {
+      return await this.request('/settings');
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+      return null;
+    }
+  }
+
+  async updateSettings(settings: any) {
+    return this.request('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
   }
 }
 
