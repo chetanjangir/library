@@ -23,7 +23,7 @@ export default async function handler(req, res) {
       
       // Create seat map
       const seats = [];
-      for (let i = 1; i <= 100; i++) {
+      for (let i = 1; i <= 120; i++) {
         const seat = {
           id: i,
           isOccupied: false,
@@ -91,7 +91,7 @@ export default async function handler(req, res) {
     
     // Fallback to vacant seats
     const seats = [];
-    for (let i = 1; i <= 100; i++) {
+    for (let i = 1; i <= 120; i++) {
       seats.push({
         id: i,
         isOccupied: false,
