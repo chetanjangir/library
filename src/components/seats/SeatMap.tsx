@@ -75,7 +75,7 @@ function SeatMap({ seats, onSeatClick, onAddStudent, onRefresh }: SeatMapProps) 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">Seat Map (100 Seats)</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Seat Map (120 Seats)</h2>
         <button 
           onClick={onRefresh}
           className="px-3 py-1 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"

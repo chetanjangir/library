@@ -111,7 +111,7 @@ class ApiService {
       console.error('Failed to fetch seats:', error);
       // Return 100 vacant seats as fallback
       const fallbackSeats = [];
-      for (let i = 1; i <= 100; i++) {
+      for (let i = 1; i <= 120; i++) {
         fallbackSeats.push({
           id: i,
           seatNumber: i,
