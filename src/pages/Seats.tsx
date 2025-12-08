@@ -7,7 +7,7 @@ import type { Seat, Student } from '../types';
 const generateVacantSeats = (): Seat[] => {
   const seats: Seat[] = [];
   
-  for (let i = 1; i <= 100; i++) {
+  for (let i = 1; i <= 120; i++) {
     seats.push({
       id: i,
       isOccupied: false,
