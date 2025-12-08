@@ -1,9 +1,15 @@
 export interface Student {
   id: string;
   name: string;
+  fatherName?: string;
   email: string;
   mobile: string;
+  aadhaarNumber?: string;
+  address?: string;
+  biometricId?: string;
   joinDate: string;
+  startDate: string;
+  endDate?: string;
   planType: 'daily' | 'monthly' | 'yearly';
   dayType: 'full' | 'half';
   halfDaySlot?: 'morning' | 'evening';
@@ -12,8 +18,11 @@ export interface Student {
   subscriptionEndDate: string;
   currency: 'USD' | 'EUR' | 'INR' | 'GBP';
   monthlyAmount: number;
-  halfDayAmount: number;
-  fullDayAmount: number;
+  halfDayAmount?: number;
+  fullDayAmount?: number;
+  paymentStatus?: 'paid' | 'due' | 'partial';
+  paidAmount?: number;
+  balanceAmount?: number;
 }
 
 export interface Payment {
@@ -54,4 +63,19 @@ export interface NotificationSettings {
     ssid: string;
     password: string;
   };
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'student';
+  studentId?: string; // If role is student, links to student record
+  createdAt: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
 }
