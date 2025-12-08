@@ -5,13 +5,10 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
-import Analytics from './pages/Analytics';
 import Students from './pages/Students';
-import Expiring from './pages/Expiring';
 import Expiring from './pages/Expiring';
 import Payments from './pages/Payments';
 import Seats from './pages/Seats';
-import Settings from './pages/Settings';
 import Settings from './pages/Settings';
 
 function AppContent() {
