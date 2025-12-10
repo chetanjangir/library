@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       if (!process.env.MONGODB_URI) {
         console.log('No MongoDB URI found, returning all seats as available');
         const availableSeats = [];
-        for (let i = 1; i <= 100; i++) {
+        for (let i = 1; i <= 120; i++) {
           availableSeats.push({ seatNumber: i, type: 'vacant' });
         }
         return res.status(200).json(availableSeats);
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
       // Generate available seats list
       const availableSeats = [];
       
-      for (let i = 1; i <= 100; i++) {
+      for (let i = 1; i <= 120; i++) {
         const seat = seatMap[i];
         
         if (!seat) {
@@ -105,7 +105,7 @@ export default async function handler(req, res) {
     
     // Fallback to all seats available
     const availableSeats = [];
-    for (let i = 1; i <= 100; i++) {
+    for (let i = 1; i <= 120; i++) {
       availableSeats.push({ seatNumber: i, type: 'vacant', availability: 'full' });
     }
     return res.status(200).json(availableSeats);
