@@ -6,6 +6,7 @@ import StudentList from '../components/students/StudentList';
 import { ToastContainer } from '../components/ui/Toast';
 import { useToast } from '../hooks/useToast';
 import { apiService } from '../services/api';
+import { computeDueInfo, makePaymentRecord } from '../utils/dues';
 import type { Student } from '../types';
 
 function Students() {
@@ -141,27 +142,26 @@ function Students() {
 
   const handleUpdateBalance = async (student: Student, amount: number) => {
     try {
-      const newPaidAmount = (student.paidAmount || 0) + amount;
-      const totalAmount = student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount;
-      const newBalanceAmount = Math.max(0, totalAmount - newPaidAmount);
-      
-      let newPaymentStatus: 'paid' | 'due' | 'partial' = 'due';
-      if (newPaidAmount >= totalAmount) {
-        newPaymentStatus = 'paid';
-      } else if (newPaidAmount > 0) {
-        newPaymentStatus = 'partial';
-      }
+      const updatedHistory = [
+        ...(student.paymentHistory || []),
+        makePaymentRecord(amount, 'payment', 'Balance payment')
+      ];
+      const info = computeDueInfo({ ...student, paymentHistory: updatedHistory });
 
       const updateData = {
         ...student,
-        paidAmount: newPaidAmount,
-        balanceAmount: newBalanceAmount,
-        paymentStatus: newPaymentStatus
+        paymentHistory: updatedHistory,
+        paidAmount: info.totalPaid,
+        balanceAmount: info.due,
+        paymentStatus: (info.due <= 0 ? 'paid' : info.totalPaid > 0 ? 'partial' : 'due') as 'paid' | 'due' | 'partial'
       };
 
       await apiService.updateStudent(student.id, updateData);
       await loadStudents();
-      showSuccess('Balance Added', `₹${amount} added to ${student.name}'s account`);
+      showSuccess(
+        'Payment Added',
+        `₹${amount} added to ${student.name}'s account. Remaining due: ₹${info.due.toFixed(2)}`
+      );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update balance';
       setError(errorMessage);
@@ -189,24 +189,24 @@ function Students() {
 
   const handleUpdatePaymentStatus = async (student: Student, newPaymentStatus: 'paid' | 'due' | 'partial'): Promise<void> => {
     try {
-      let newPaidAmount = student.paidAmount || 0;
-      const totalAmount = student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount;
-      
-      // Set payment amounts based on status
-      if (newPaymentStatus === 'paid') {
-        newPaidAmount = totalAmount;
-      } else if (newPaymentStatus === 'due') {
-        newPaidAmount = 0;
+      const info = computeDueInfo(student);
+      let updatedHistory = student.paymentHistory || [];
+
+      // Marking as "paid" tops up the ledger to clear the outstanding due.
+      // "due"/"partial" are informational only here - use "Add Balance" or the
+      // edit form to record actual payments against the ledger.
+      if (newPaymentStatus === 'paid' && info.due > 0) {
+        updatedHistory = [...updatedHistory, makePaymentRecord(info.due, 'payment', 'Marked as fully paid')];
       }
-      // For partial, keep existing paid amount
-      
-      const newBalanceAmount = Math.max(0, totalAmount - newPaidAmount);
-      
+
+      const newInfo = computeDueInfo({ ...student, paymentHistory: updatedHistory });
+
       const updateData = {
         ...student,
+        paymentHistory: updatedHistory,
         paymentStatus: newPaymentStatus,
-        paidAmount: newPaidAmount,
-        balanceAmount: newBalanceAmount
+        paidAmount: newInfo.totalPaid,
+        balanceAmount: newInfo.due
       };
 
       await apiService.updateStudent(student.id, updateData);

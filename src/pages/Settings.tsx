@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Building, DollarSign, Bell, MessageCircle, Mail, Smartphone, Save } from 'lucide-react';
+import { Settings as SettingsIcon, Building, DollarSign, Bell, MessageCircle, Mail, Smartphone, Save, Clock } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { apiService } from '../services/api';
 
@@ -17,6 +17,20 @@ interface FeeStructure {
   fullDayFee: number;
   currency: 'USD' | 'EUR' | 'INR' | 'GBP';
   warningDays: number;
+  gracePeriodDays: number;
+  lateFeePerDay: number;
+}
+
+interface TimeSlot {
+  start: string;
+  end: string;
+}
+
+interface DayTimings {
+  fullDay: TimeSlot;
+  halfDayMorning: TimeSlot;
+  halfDayEvening: TimeSlot;
+  weeklyOff: string;
 }
 
 interface NotificationSettings {
@@ -46,7 +60,7 @@ interface WifiDetails {
 }
 
 function Settings() {
-  const [activeTab, setActiveTab] = useState<'library' | 'fees' | 'notifications'>('library');
+  const [activeTab, setActiveTab] = useState<'library' | 'fees' | 'timings' | 'notifications'>('library');
   const [librarySettings, setLibrarySettings] = useState<LibrarySettings>({
     name: 'Central Library',
     address: '123 Main Street, City, State 12345',
@@ -60,7 +74,16 @@ function Settings() {
     halfDayFee: 600,
     fullDayFee: 1000,
     currency: 'INR',
-    warningDays: 7
+    warningDays: 7,
+    gracePeriodDays: 3,
+    lateFeePerDay: 0
+  });
+
+  const [dayTimings, setDayTimings] = useState<DayTimings>({
+    fullDay: { start: '07:00', end: '22:00' },
+    halfDayMorning: { start: '07:00', end: '14:00' },
+    halfDayEvening: { start: '14:00', end: '22:00' },
+    weeklyOff: 'none'
   });
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -115,6 +138,9 @@ function Settings() {
         if (settings.wifiDetails) {
           setWifiDetails(settings.wifiDetails);
         }
+        if (settings.timings) {
+          setDayTimings(settings.timings);
+        }
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -130,7 +156,8 @@ function Settings() {
         library: librarySettings,
         fees: feeStructure,
         notifications: notificationSettings,
-        wifiDetails: wifiDetails
+        wifiDetails: wifiDetails,
+        timings: dayTimings
       });
       alert('Library settings saved successfully!');
     } catch (error) {
@@ -149,12 +176,33 @@ function Settings() {
         library: librarySettings,
         fees: feeStructure,
         notifications: notificationSettings,
-        wifiDetails: wifiDetails
+        wifiDetails: wifiDetails,
+        timings: dayTimings
       });
       alert('Fee structure saved successfully!');
     } catch (error) {
       alert('Failed to save fee structure');
       console.error('Error saving fee structure:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveTimings = async () => {
+    setSaving(true);
+    try {
+      await apiService.updateSettings({
+        type: 'app_settings',
+        library: librarySettings,
+        fees: feeStructure,
+        notifications: notificationSettings,
+        wifiDetails: wifiDetails,
+        timings: dayTimings
+      });
+      alert('Day timings saved successfully!');
+    } catch (error) {
+      alert('Failed to save day timings');
+      console.error('Error saving day timings:', error);
     } finally {
       setSaving(false);
     }
@@ -168,7 +216,8 @@ function Settings() {
         library: librarySettings,
         fees: feeStructure,
         notifications: notificationSettings,
-        wifiDetails: wifiDetails
+        wifiDetails: wifiDetails,
+        timings: dayTimings
       });
       
       // Refresh WhatsApp service configuration
@@ -187,6 +236,7 @@ function Settings() {
   const tabs = [
     { id: 'library', label: 'Library Details', icon: Building },
     { id: 'fees', label: 'Fee Structure', icon: DollarSign },
+    { id: 'timings', label: 'Day Timings', icon: Clock },
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
@@ -389,12 +439,151 @@ function Settings() {
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Grace Period (days)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                    value={feeStructure.gracePeriodDays}
+                    onChange={(e) => setFeeStructure({ ...feeStructure, gracePeriodDays: parseInt(e.target.value) || 0 })}
+                  />
+                  <p className="mt-1 text-sm text-gray-500">Days after due date before a late fee applies</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Late Fee (per day)</label>
+                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(feeStructure.currency)}</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      value={feeStructure.lateFeePerDay}
+                      onChange={(e) => setFeeStructure({ ...feeStructure, lateFeePerDay: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">Set to 0 to disable late fees</p>
+                </div>
               </div>
 
               <div className="flex justify-end">
                 <Button onClick={handleSaveFeeStructure} disabled={saving}>
                   <Save className="w-4 h-4 mr-2" />
                   {saving ? 'Saving...' : 'Save Fee Structure'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'timings' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900">Day Type Timings</h3>
+              <p className="text-sm text-gray-500 -mt-4">
+                These timings are shown to admins when assigning a half-day slot to a student.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Full Day</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">Start Time</label>
+                      <input
+                        type="time"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                        value={dayTimings.fullDay.start}
+                        onChange={(e) => setDayTimings({ ...dayTimings, fullDay: { ...dayTimings.fullDay, start: e.target.value } })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">End Time</label>
+                      <input
+                        type="time"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                        value={dayTimings.fullDay.end}
+                        onChange={(e) => setDayTimings({ ...dayTimings, fullDay: { ...dayTimings.fullDay, end: e.target.value } })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Half Day - Morning</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">Start Time</label>
+                      <input
+                        type="time"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                        value={dayTimings.halfDayMorning.start}
+                        onChange={(e) => setDayTimings({ ...dayTimings, halfDayMorning: { ...dayTimings.halfDayMorning, start: e.target.value } })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">End Time</label>
+                      <input
+                        type="time"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                        value={dayTimings.halfDayMorning.end}
+                        onChange={(e) => setDayTimings({ ...dayTimings, halfDayMorning: { ...dayTimings.halfDayMorning, end: e.target.value } })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Half Day - Evening</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">Start Time</label>
+                      <input
+                        type="time"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                        value={dayTimings.halfDayEvening.start}
+                        onChange={(e) => setDayTimings({ ...dayTimings, halfDayEvening: { ...dayTimings.halfDayEvening, start: e.target.value } })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">End Time</label>
+                      <input
+                        type="time"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                        value={dayTimings.halfDayEvening.end}
+                        onChange={(e) => setDayTimings({ ...dayTimings, halfDayEvening: { ...dayTimings.halfDayEvening, end: e.target.value } })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Weekly Off Day</label>
+                <select
+                  className="mt-1 block w-full md:w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                  value={dayTimings.weeklyOff}
+                  onChange={(e) => setDayTimings({ ...dayTimings, weeklyOff: e.target.value })}
+                >
+                  <option value="none">None (Open all days)</option>
+                  <option value="monday">Monday</option>
+                  <option value="tuesday">Tuesday</option>
+                  <option value="wednesday">Wednesday</option>
+                  <option value="thursday">Thursday</option>
+                  <option value="friday">Friday</option>
+                  <option value="saturday">Saturday</option>
+                  <option value="sunday">Sunday</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSaveTimings} disabled={saving}>
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? 'Saving...' : 'Save Day Timings'}
                 </Button>
               </div>
             </div>

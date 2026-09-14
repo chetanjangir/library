@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, Map, Calendar, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Map, Calendar, BarChart3, Settings, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 function Sidebar() {
@@ -12,6 +12,7 @@ function Sidebar() {
     { to: '/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/students', icon: Users, label: 'Students' },
     { to: '/expiring', icon: Calendar, label: 'Expiring' },
+    { to: '/dues', icon: AlertCircle, label: 'Dues' },
     { to: '/payments', icon: CreditCard, label: 'Payments' },
     { to: '/seats', icon: Map, label: 'Seat Map' },
     { to: '/settings', icon: Settings, label: 'Settings' },

@@ -45,7 +45,15 @@ export default async function handler(req, res) {
             halfDayFee: 600,
             fullDayFee: 1000,
             currency: 'INR',
-            warningDays: 7
+            warningDays: 7,
+            gracePeriodDays: 3,
+            lateFeePerDay: 0
+          },
+          timings: {
+            fullDay: { start: '07:00', end: '22:00' },
+            halfDayMorning: { start: '07:00', end: '14:00' },
+            halfDayEvening: { start: '14:00', end: '22:00' },
+            weeklyOff: 'none'
           },
           notifications: {
             whatsappEnabled: false,
@@ -154,7 +162,15 @@ function handleFallback(req, res) {
       halfDayFee: 600,
       fullDayFee: 1000,
       currency: 'INR',
-      warningDays: 7
+      warningDays: 7,
+      gracePeriodDays: 3,
+      lateFeePerDay: 0
+    },
+    timings: {
+      fullDay: { start: '07:00', end: '22:00' },
+      halfDayMorning: { start: '07:00', end: '14:00' },
+      halfDayEvening: { start: '14:00', end: '22:00' },
+      weeklyOff: 'none'
     },
     notifications: {
       whatsappEnabled: false,

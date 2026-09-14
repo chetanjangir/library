@@ -1,8 +1,9 @@
 import React from 'react';
-import { Edit, MessageCircle, AlertTriangle, Trash2, DollarSign, UserCheck } from 'lucide-react';
+import { Edit, MessageCircle, AlertTriangle, Trash2, DollarSign, UserCheck, User } from 'lucide-react';
 import type { Student } from '../../types';
 import Button from '../ui/Button';
 import { useToast } from '../../hooks/useToast';
+import { computeDueInfo } from '../../utils/dues';
 
 interface StudentListProps {
   students: Student[];
@@ -112,19 +113,34 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                 {index + 1}
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                <div>
-                  <div className="text-sm font-medium text-gray-900 truncate max-w-32 sm:max-w-none">{student.name}</div>
-                  {student.fatherName && (
-                    <div className="text-xs text-gray-500">Father: {student.fatherName}</div>
-                  )}
-                  <div className="text-sm text-gray-500 sm:hidden truncate max-w-32">{student.mobile}</div>
-                  <div className="text-sm text-gray-500 hidden sm:block truncate">{student.email}</div>
-                  {student.aadhaarNumber && (
-                    <div className="text-xs text-gray-500">Aadhaar: {student.aadhaarNumber}</div>
-                  )}
-                  {student.biometricId && (
-                    <div className="text-xs text-gray-500">Bio ID: {student.biometricId}</div>
-                  )}
+                <div className="flex items-start space-x-3">
+                  <div className="relative group flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                      {student.photo ? (
+                        <img
+                          src={student.photo}
+                          alt={student.name}
+                          className="w-full h-full object-cover transform transition-transform duration-200 ease-out group-hover:scale-[3] group-hover:relative group-hover:z-50 group-hover:shadow-xl group-hover:rounded-md"
+                        />
+                      ) : (
+                        <User className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900 truncate max-w-32 sm:max-w-none">{student.name}</div>
+                    {student.fatherName && (
+                      <div className="text-xs text-gray-500">Father: {student.fatherName}</div>
+                    )}
+                    <div className="text-sm text-gray-500 sm:hidden truncate max-w-32">{student.mobile}</div>
+                    <div className="text-sm text-gray-500 hidden sm:block truncate">{student.email}</div>
+                    {student.aadhaarNumber && (
+                      <div className="text-xs text-gray-500">Aadhaar: {student.aadhaarNumber}</div>
+                    )}
+                    {student.biometricId && (
+                      <div className="text-xs text-gray-500">Bio ID: {student.biometricId}</div>
+                    )}
+                  </div>
                 </div>
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
@@ -163,14 +179,18 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(student.paymentStatus || 'due')}`}>
                   {student.paymentStatus || 'due'}
                 </span>
-                {student.paymentStatus === 'partial' && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    Paid: {getCurrencySymbol(student.currency)}{student.paidAmount || 0}
+                <div className="text-xs text-gray-500 mt-1">
+                  Paid: {getCurrencySymbol(student.currency)}{computeDueInfo(student).totalPaid.toFixed(2)}
+                </div>
+                {computeDueInfo(student).due > 0 && (
+                  <div className="text-xs text-red-600 mt-1">
+                    Due: {getCurrencySymbol(student.currency)}{computeDueInfo(student).due.toFixed(2)}
+                    {student.planType === 'monthly' && ` (${computeDueInfo(student).monthsElapsed}mo)`}
                   </div>
                 )}
-                {student.balanceAmount && student.balanceAmount > 0 && (
-                  <div className="text-xs text-red-600 mt-1">
-                    Balance: {getCurrencySymbol(student.currency)}{student.balanceAmount}
+                {computeDueInfo(student).advance > 0 && (
+                  <div className="text-xs text-green-600 mt-1">
+                    Advance: {getCurrencySymbol(student.currency)}{computeDueInfo(student).advance.toFixed(2)}
                   </div>
                 )}
               </td>

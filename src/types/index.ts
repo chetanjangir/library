@@ -1,3 +1,11 @@
+export interface PaymentRecord {
+  id: string;
+  date: string;
+  amount: number;
+  type: 'payment' | 'advance';
+  note?: string;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -7,6 +15,7 @@ export interface Student {
   aadhaarNumber?: string;
   address?: string;
   biometricId?: string;
+  photo?: string;
   joinDate: string;
   startDate: string;
   endDate?: string;
@@ -23,6 +32,7 @@ export interface Student {
   paymentStatus?: 'paid' | 'due' | 'partial';
   paidAmount?: number;
   balanceAmount?: number;
+  paymentHistory?: PaymentRecord[];
 }
 
 export interface Payment {

@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import Button from '../ui/Button';
+import ProfilePhotoInput from './ProfilePhotoInput';
 import { apiService } from '../../services/api';
-import type { Student } from '../../types';
+import { computeDueInfo, makePaymentRecord } from '../../utils/dues';
+import type { PaymentRecord, Student } from '../../types';
 
 interface StudentFormProps {
   onSubmit: (student: Omit<Student, 'id'>) => void;
@@ -19,6 +22,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     biometricId: editingStudent?.biometricId || '',
     aadhaarNumber: editingStudent?.aadhaarNumber || '',
     address: editingStudent?.address || '',
+    photo: editingStudent?.photo || '',
     startDate: editingStudent?.startDate ? new Date(editingStudent.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     endDate: editingStudent?.endDate ? new Date(editingStudent.endDate).toISOString().split('T')[0] : '',
     seatNumber: editingStudent?.seatNumber || prefilledSeatNumber || undefined,
@@ -28,10 +32,23 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     currency: editingStudent?.currency || 'INR',
     monthlyAmount: editingStudent?.monthlyAmount || 1000,
     paymentStatus: editingStudent?.paymentStatus || 'due',
-    paidAmount: editingStudent?.paidAmount || 0,
-    balanceAmount: editingStudent?.balanceAmount || 0,
     status: editingStudent?.status || 'active'
   });
+
+  // Payment ledger: every payment/advance ever recorded for this student.
+  // New entries are appended here and persisted when the form is submitted.
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>(() => {
+    if (editingStudent?.paymentHistory && editingStudent.paymentHistory.length > 0) {
+      return editingStudent.paymentHistory;
+    }
+    if (editingStudent && (editingStudent.paidAmount || 0) > 0) {
+      // Legacy student created before the payment ledger existed
+      return [makePaymentRecord(editingStudent.paidAmount || 0, 'payment', 'Initial payment')];
+    }
+    return [];
+  });
+  const [newEntryAmount, setNewEntryAmount] = useState('');
+  const [newEntryType, setNewEntryType] = useState<'payment' | 'advance'>('payment');
 
   const [availableSeats, setAvailableSeats] = useState<any[]>([]);
   const [loadingSeats, setLoadingSeats] = useState(false);
@@ -114,15 +131,35 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     }
   };
 
-  // Calculate balance amount when paid amount or monthly amount changes
-  const calculatedBalance = Math.max(0, formData.monthlyAmount - formData.paidAmount);
+  // Half day and full day amounts, kept in sync with the monthly amount
+  const halfDayAmount = formData.monthlyAmount * 0.6;
+  const fullDayAmount = formData.monthlyAmount;
 
-  React.useEffect(() => {
-    setFormData(prev => ({
+  // Month-wise dues, computed live from the payment ledger
+  const dueInfo = computeDueInfo({
+    dayType: formData.dayType,
+    halfDayAmount,
+    fullDayAmount,
+    monthlyAmount: formData.monthlyAmount,
+    planType: formData.planType,
+    startDate: formData.startDate,
+    joinDate: formData.startDate,
+    paymentHistory
+  });
+
+  const handleAddEntry = () => {
+    const amount = parseFloat(newEntryAmount);
+    if (!amount || amount <= 0) return;
+    setPaymentHistory(prev => [
       ...prev,
-      balanceAmount: calculatedBalance
-    }));
-  }, [formData.paidAmount, formData.monthlyAmount, calculatedBalance]);
+      makePaymentRecord(amount, newEntryType, newEntryType === 'advance' ? 'Advance payment' : 'Payment received')
+    ]);
+    setNewEntryAmount('');
+  };
+
+  const handleRemoveEntry = (id: string) => {
+    setPaymentHistory(prev => prev.filter(entry => entry.id !== id));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,9 +179,19 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
       }
     }
 
-    // Calculate half day and full day amounts based on monthly amount
-    const halfDayAmount = formData.monthlyAmount * 0.6;
-    const fullDayAmount = formData.monthlyAmount;
+    const finalDueInfo = computeDueInfo({
+      dayType: formData.dayType,
+      halfDayAmount,
+      fullDayAmount,
+      monthlyAmount: formData.monthlyAmount,
+      planType: formData.planType,
+      startDate: formData.startDate,
+      joinDate: formData.startDate,
+      paymentHistory
+    });
+
+    const autoPaymentStatus: 'paid' | 'due' | 'partial' =
+      finalDueInfo.due <= 0 ? 'paid' : finalDueInfo.totalPaid > 0 ? 'partial' : 'due';
 
     onSubmit({
       ...formData,
@@ -152,6 +199,10 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
       subscriptionEndDate: subscriptionEndDate.toISOString(),
       halfDayAmount,
       fullDayAmount,
+      paymentHistory,
+      paidAmount: finalDueInfo.totalPaid,
+      balanceAmount: finalDueInfo.due,
+      paymentStatus: formData.paymentStatus || autoPaymentStatus
     });
   };
 
@@ -170,38 +221,44 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Row 1: Student Name, Father's Name, Mobile Number */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Student Name *</label>
-          <input
-            type="text"
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Father's Name</label>
-          <input
-            type="text"
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.fatherName}
-            onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
-          />
-        </div>
+      {/* Photo + Row 1: Student Name, Father's Name, Mobile Number */}
+      <div className="flex flex-col md:flex-row gap-6">
+        <ProfilePhotoInput
+          value={formData.photo}
+          onChange={(dataUrl) => setFormData({ ...formData, photo: dataUrl })}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Student Name *</label>
+            <input
+              type="text"
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Father's Name</label>
+            <input
+              type="text"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+              value={formData.fatherName}
+              onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Mobile Number *</label>
-          <input
-            type="tel"
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-            value={formData.mobile}
-            onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Mobile Number *</label>
+            <input
+              type="tel"
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+              value={formData.mobile}
+              onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+            />
+          </div>
         </div>
       </div>
 
@@ -236,7 +293,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
           <label className="block text-sm font-medium text-gray-700">Aadhaar Card Number</label>
           <input
             type="text"
-            maxLength="12"
+            maxLength={12}
             pattern="[0-9]{12}"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
             value={formData.aadhaarNumber}
@@ -349,8 +406,12 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
               value={formData.halfDaySlot}
               onChange={(e) => setFormData({ ...formData, halfDaySlot: e.target.value as 'morning' | 'evening' })}
             >
-              <option value="morning">Morning (9 AM - 2 PM)</option>
-              <option value="evening">Evening (2 PM - 9 PM)</option>
+              <option value="morning">
+                Morning{settings?.timings?.halfDayMorning ? ` (${settings.timings.halfDayMorning.start} - ${settings.timings.halfDayMorning.end})` : ' (9 AM - 2 PM)'}
+              </option>
+              <option value="evening">
+                Evening{settings?.timings?.halfDayEvening ? ` (${settings.timings.halfDayEvening.start} - ${settings.timings.halfDayEvening.end})` : ' (2 PM - 9 PM)'}
+              </option>
             </select>
           )}
         </div>
@@ -410,62 +471,109 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
             <option value="partial">Partial</option>
             <option value="paid">Paid</option>
           </select>
+          <p className="mt-1 text-xs text-gray-500">Auto-suggested from the payment ledger below; override if needed.</p>
         </div>
       </div>
 
-      {/* Row 8: Paid Amount, Balance Amount */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Paid Amount</label>
-          <div className="mt-1 relative rounded-md shadow-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(formData.currency)}</span>
-            </div>
-            <input
-              type="number"
-              min="0"
-              max={formData.monthlyAmount}
-              step="0.01"
-              className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              value={formData.paidAmount}
-              onChange={(e) => setFormData({ ...formData, paidAmount: parseFloat(e.target.value) || 0 })}
-            />
-          </div>
+      {/* Payments & Dues */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="bg-gray-50 px-4 py-3 border-b">
+          <h4 className="text-sm font-medium text-gray-900">Payments & Dues</h4>
+          {formData.planType === 'monthly' && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              Calculated month-wise: {dueInfo.monthsElapsed} month{dueInfo.monthsElapsed !== 1 ? 's' : ''} since start date.
+            </p>
+          )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Balance Amount</label>
-          <div className="mt-1 relative rounded-md shadow-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(formData.currency)}</span>
+        <div className="p-4 space-y-4">
+          {/* Due Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-blue-50 rounded-lg p-4">
+            <div>
+              <span className="text-blue-600">Expected Total:</span>
+              <p className="font-medium">{getCurrencySymbol(formData.currency)}{dueInfo.expectedTotal.toFixed(2)}</p>
             </div>
-            <input
-              type="number"
-              className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md bg-gray-50 sm:text-sm"
-              value={formData.balanceAmount}
-              readOnly
-            />
+            <div>
+              <span className="text-blue-600">Total Paid:</span>
+              <p className="font-medium">{getCurrencySymbol(formData.currency)}{dueInfo.totalPaid.toFixed(2)}</p>
+            </div>
+            <div>
+              <span className="text-blue-600">Balance Due:</span>
+              <p className={`font-medium ${dueInfo.due > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                {getCurrencySymbol(formData.currency)}{dueInfo.due.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <span className="text-blue-600">Advance / Credit:</span>
+              <p className={`font-medium ${dueInfo.advance > 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                {getCurrencySymbol(formData.currency)}{dueInfo.advance.toFixed(2)}
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-sm text-gray-500">Auto-calculated: Monthly Amount - Paid Amount</p>
-        </div>
-      </div>
 
-      {/* Payment Summary */}
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h4 className="text-sm font-medium text-blue-900 mb-2">Payment Summary</h4>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <div>
-            <span className="text-blue-600">Monthly Amount:</span>
-            <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.monthlyAmount}</p>
+          {/* Ledger */}
+          {paymentHistory.length > 0 && (
+            <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+              {[...paymentHistory].reverse().map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <div>
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium mr-2 ${entry.type === 'advance' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                      {entry.type === 'advance' ? 'Advance' : 'Payment'}
+                    </span>
+                    <span className="text-gray-500 text-xs">{new Date(entry.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="font-medium">{getCurrencySymbol(formData.currency)}{entry.amount.toFixed(2)}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEntry(entry.id)}
+                      className="text-gray-400 hover:text-red-600"
+                      title="Remove entry"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add entry */}
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-700">Amount</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(formData.currency)}</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="block w-32 pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  value={newEntryAmount}
+                  onChange={(e) => setNewEntryAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700">Type</label>
+              <select
+                className="mt-1 block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+                value={newEntryType}
+                onChange={(e) => setNewEntryType(e.target.value as 'payment' | 'advance')}
+              >
+                <option value="payment">Payment (towards dues)</option>
+                <option value="advance">Advance (for future months)</option>
+              </select>
+            </div>
+            <Button type="button" variant="secondary" onClick={handleAddEntry} disabled={!newEntryAmount || parseFloat(newEntryAmount) <= 0}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add
+            </Button>
           </div>
-          <div>
-            <span className="text-blue-600">Paid Amount:</span>
-            <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.paidAmount}</p>
-          </div>
-          <div>
-            <span className="text-blue-600">Balance:</span>
-            <p className="font-medium">{getCurrencySymbol(formData.currency)}{formData.balanceAmount}</p>
-          </div>
+          <p className="text-xs text-gray-500">Entries are saved when you {editingStudent ? 'update' : 'add'} the student below.</p>
         </div>
       </div>
 

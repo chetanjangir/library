@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import Students from './pages/Students';
 import Expiring from './pages/Expiring';
+import Dues from './pages/Dues';
 import Payments from './pages/Payments';
 import Seats from './pages/Seats';
 import Settings from './pages/Settings';
@@ -51,6 +52,14 @@ function AppContent() {
           element={
             <ProtectedRoute requiredRole="admin">
               <Expiring />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/dues" 
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <Dues />
             </ProtectedRoute>
           } 
         />
