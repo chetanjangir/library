@@ -25,32 +25,29 @@ export default async function handler(req, res) {
     const studentsCollection = db.collection('students');
 
     if (req.method === 'GET') {
-      console.log('Fetching payments from MongoDB...');
-      
-      // Get all students to enrich payment data
+      console.log('Fetching payments from MongoDB...', req.query);
+
+      // Get all students to enrich payment data (also used to resolve each
+      // payment's student for the response, and by the client for the
+      // per-row payment-history/upcoming-dues popup)
       const students = await studentsCollection.find({}).toArray();
       console.log(`Found ${students.length} students in database`);
-      
-      // Get all payments from database
-      const payments = await paymentsCollection.find({}).sort({ due_date: -1 }).toArray();
-      console.log(`Found ${payments.length} payments in database`);
-      
-      // Convert payments to frontend format
-      const responsePayments = payments.map(payment => {
+
+      const mapPayment = (payment) => {
         // Find student by ID first, then by name if ID not found
         let student = students.find(s => s._id.toString() === payment.student_id?.toString());
-        
+
         if (!student && payment.student_name) {
           student = students.find(s => s.name === payment.student_name);
         }
-        
+
         let studentName = 'Unknown Student';
         let paymentStatus = payment.status || 'pending';
         let paidDate = payment.paid_date;
-        
+
         if (student) {
           studentName = student.name;
-          
+
           // Sync payment status with student payment status
           if (student.payment_status === 'paid') {
             paymentStatus = 'paid';
@@ -64,9 +61,7 @@ export default async function handler(req, res) {
             paymentStatus = 'pending'; // Due status shows as pending
           }
         }
-        
-        console.log(`Payment ${payment._id}: student_id=${payment.student_id}, resolved name=${studentName}, status=${paymentStatus}`);
-        
+
         return {
           id: payment._id.toString(),
           studentId: payment.student_id?.toString(),
@@ -82,10 +77,76 @@ export default async function handler(req, res) {
           updatedAt: payment.updated_at,
           _id: undefined
         };
+      };
+
+      const query = req.query || {};
+      const isPaginated = query.page !== undefined || query.limit !== undefined;
+
+      if (!isPaginated) {
+        // Legacy behavior: return the full array. Used by pages that need
+        // every payment at once (Dashboard, Analytics, Students).
+        const payments = await paymentsCollection.find({}).sort({ due_date: -1 }).toArray();
+        const responsePayments = payments.map(mapPayment);
+        console.log(`Returning all ${responsePayments.length} payments (legacy, unpaginated)`);
+        return res.status(200).json(responsePayments);
+      }
+
+      // Paginated + filtered path, used by the Payments list page.
+      const page = Math.max(1, parseInt(query.page) || 1);
+      const limit = Math.min(1000, Math.max(1, parseInt(query.limit) || 20));
+      const search = (query.search || '').trim();
+
+      const filter = {};
+      if (search) {
+        const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escaped, 'i');
+        const matchingStudentIds = students
+          .filter(s => regex.test(s.name || ''))
+          .map(s => s._id.toString());
+        filter.$or = [
+          { student_name: regex },
+          { student_id: { $in: matchingStudentIds } }
+        ];
+      }
+      if (query.status && query.status !== 'all') {
+        if (query.status === 'paid') {
+          filter.status = 'paid';
+        } else if (query.status === 'pending') {
+          filter.status = { $in: ['pending', 'due'] };
+        } else if (query.status === 'overdue') {
+          filter.status = { $in: ['overdue', 'expired'] };
+        }
+      }
+      if (query.planType && query.planType !== 'all') {
+        filter.plan_type = query.planType;
+      }
+      if (query.dateFrom || query.dateTo) {
+        filter.due_date = {};
+        if (query.dateFrom) filter.due_date.$gte = new Date(query.dateFrom);
+        if (query.dateTo) {
+          const to = new Date(query.dateTo);
+          to.setHours(23, 59, 59, 999);
+          filter.due_date.$lte = to;
+        }
+      }
+
+      const [total, payments] = await Promise.all([
+        paymentsCollection.countDocuments(filter),
+        paymentsCollection.find(filter).sort({ due_date: -1 }).skip((page - 1) * limit).limit(limit).toArray()
+      ]);
+
+      const responsePayments = payments.map(mapPayment);
+      console.log(`Returning page ${page} (${responsePayments.length} of ${total} matching payments)`);
+
+      return res.status(200).json({
+        payments: responsePayments,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit))
+        }
       });
-      
-      console.log(`Returning ${responsePayments.length} payments`);
-      return res.status(200).json(responsePayments);
     }
 
     if (req.method === 'POST') {
@@ -240,7 +301,16 @@ function handleFallback(req, res) {
   ];
 
   if (req.method === 'GET') {
-    return res.status(200).json(samplePayments);
+    const isPaginated = req.query && (req.query.page !== undefined || req.query.limit !== undefined);
+    if (!isPaginated) {
+      return res.status(200).json(samplePayments);
+    }
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit) || 20));
+    return res.status(200).json({
+      payments: samplePayments,
+      pagination: { page, limit, total: samplePayments.length, totalPages: 1 }
+    });
   }
 
   if (req.method === 'POST') {

@@ -1,9 +1,10 @@
 import React from 'react';
-import { Edit, MessageCircle, AlertTriangle, Trash2, User } from 'lucide-react';
+import { Edit, MessageCircle, AlertTriangle, Trash2, User, History } from 'lucide-react';
 import type { Student } from '../../types';
 import Button from '../ui/Button';
 import { useToast } from '../../hooks/useToast';
 import { computeDueInfo } from '../../utils/dues';
+import PaymentHistoryModal from './PaymentHistoryModal';
 
 interface StudentListProps {
   students: Student[];
@@ -19,6 +20,7 @@ interface StudentListProps {
 function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus, onUpdatePaymentStatus, startIndex = 0 }: StudentListProps) {
   const [balanceInputs, setBalanceInputs] = React.useState<{[key: string]: string}>({});
   const [photoPreview, setPhotoPreview] = React.useState<{ src: string; name: string; top: number; left: number } | null>(null);
+  const [historyStudent, setHistoryStudent] = React.useState<Student | null>(null);
   const { showSuccess, showError } = useToast();
 
   const showPhotoPreview = (e: React.MouseEvent<HTMLElement>, src: string | undefined, name: string) => {
@@ -169,24 +171,34 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
 
               {/* Payment & Dues: cycle amount, status badge, paid/due/advance */}
               <td className="px-2 sm:px-4 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-900">
-                  {getCurrencySymbol(student.currency)}{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
-                  <span className="text-xs text-gray-400">/cycle</span>
-                </div>
-                <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${getPaymentStatusColor(student.paymentStatus || 'due')}`}>
-                  {student.paymentStatus || 'due'}
-                </span>
-                {computeDueInfo(student).due > 0 && (
-                  <div className="text-xs text-red-600 mt-1">
-                    Due: {getCurrencySymbol(student.currency)}{computeDueInfo(student).due.toFixed(2)}
-                    {student.planType === 'monthly' && ` (${computeDueInfo(student).monthsElapsed}mo)`}
-                  </div>
-                )}
-                {computeDueInfo(student).advance > 0 && (
-                  <div className="text-xs text-green-600 mt-1">
-                    Advance: {getCurrencySymbol(student.currency)}{computeDueInfo(student).advance.toFixed(2)}
-                  </div>
-                )}
+                {(() => {
+                  const info = computeDueInfo(student);
+                  return (
+                    <>
+                      <div className="text-sm text-gray-900">
+                        {getCurrencySymbol(student.currency)}{info.cycleAmount}
+                        <span className="text-xs text-gray-400">/cycle</span>
+                        {student.customMonthlyAmount ? (
+                          <span className="ml-1 inline-block px-1.5 py-0.5 text-[10px] font-medium bg-indigo-100 text-indigo-700 rounded">Custom</span>
+                        ) : null}
+                      </div>
+                      <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${getPaymentStatusColor(student.paymentStatus || 'due')}`}>
+                        {student.paymentStatus || 'due'}
+                      </span>
+                      {info.due > 0 && (
+                        <div className="text-xs text-red-600 mt-1">
+                          Due: {getCurrencySymbol(student.currency)}{info.due.toFixed(2)}
+                          {student.planType === 'monthly' && ` (${info.monthsElapsed}mo)`}
+                        </div>
+                      )}
+                      {info.advance > 0 && (
+                        <div className="text-xs text-green-600 mt-1">
+                          Advance: {getCurrencySymbol(student.currency)}{info.advance.toFixed(2)}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </td>
 
               {/* Record Payment: add-balance input + quick status select, together */}
@@ -269,6 +281,13 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                 >
                   <Edit className="w-4 h-4" />
                 </button>
+                <button
+                  onClick={() => setHistoryStudent(student)}
+                  className="text-blue-600 hover:text-blue-900 p-1"
+                  title="Payment History"
+                >
+                  <History className="w-4 h-4" />
+                </button>
                 <button 
                   onClick={() => onSendReminder(student)}
                   className="text-green-600 hover:text-green-900 p-1"
@@ -306,6 +325,10 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
           />
           <p className="text-xs text-center text-gray-600 mt-1 font-medium truncate max-w-[14rem]">{photoPreview.name}</p>
         </div>
+      )}
+
+      {historyStudent && (
+        <PaymentHistoryModal student={historyStudent} onClose={() => setHistoryStudent(null)} />
       )}
     </div>
   );

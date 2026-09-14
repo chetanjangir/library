@@ -473,22 +473,36 @@ function Students() {
         </div>
       )}
       
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center space-y-4 lg:space-y-0">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Students</h1>
-          <p className="text-gray-600 mt-1">Manage student registrations and subscriptions</p>
-          {expiringSoonCount > 0 && (
-            <div className="mt-2 flex items-center text-yellow-600">
-              <AlertTriangle className="w-4 h-4 mr-1" />
-              <span className="text-sm">{expiringSoonCount} students expiring within 7 days</span>
-            </div>
-          )}
+      {/* Page title - own row, full width */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Students</h1>
+        <p className="text-gray-600 mt-1">Manage student registrations and subscriptions</p>
+      </div>
+
+      {/* Expiring soon - prominent alert banner at the top of the page */}
+      {expiringSoonCount > 0 && (
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+          <div className="flex items-center text-yellow-800">
+            <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0" />
+            <span className="text-sm font-medium">
+              {expiringSoonCount} student{expiringSoonCount > 1 ? 's' : ''} expiring within 7 days
+            </span>
+          </div>
+          <button
+            onClick={handleNotifyAllExpiring}
+            className="inline-flex items-center justify-center self-start sm:self-auto px-3 py-1.5 text-sm font-medium text-yellow-800 bg-yellow-100 hover:bg-yellow-200 rounded-md transition-colors"
+            title="Send a WhatsApp reminder to every student expiring within 7 days"
+          >
+            <MessageCircle className="w-4 h-4 mr-1.5" />
+            Notify All ({expiringSoonCount})
+          </button>
         </div>
-        
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
-          {/* Search and Filter */}
-          <div className="bg-white rounded-lg shadow-sm p-4 space-y-4">
-            <div className="flex items-center justify-between">
+      )}
+
+      <div className="mt-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3">
               <h3 className="text-sm font-medium text-gray-900">Filters</h3>
               {activeFiltersCount > 0 && (
                 <button
@@ -500,8 +514,30 @@ function Students() {
                 </button>
               )}
             </div>
-            
-            {/* Search Bar */}
+
+            {/* Action icons */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleDownloadStudents}
+                disabled={downloading || pagination.total === 0}
+                className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title={downloading ? 'Preparing CSV…' : `Download ${pagination.total} student${pagination.total !== 1 ? 's' : ''} as CSV`}
+              >
+                {downloading ? (
+                  <span className="block w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+              </button>
+              <Button onClick={() => setShowForm(true)}>
+                <Plus className="w-5 h-5 mr-2" />
+                <span className="hidden sm:inline">Add Student</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -660,29 +696,8 @@ function Students() {
                 </div>
               </div>
             </div>
-          </div>
-          
-          {/* Action Buttons */}
-          {expiringSoonCount > 0 && (
-            <Button variant="secondary" onClick={handleNotifyAllExpiring}>
-              <MessageCircle className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Notify Expiring ({expiringSoonCount})</span>
-              <span className="sm:hidden">Notify ({expiringSoonCount})</span>
-            </Button>
-          )}
-          <Button variant="secondary" onClick={handleDownloadStudents} disabled={downloading || pagination.total === 0}>
-            <Download className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">{downloading ? 'Preparing...' : `Download (${pagination.total})`}</span>
-            <span className="sm:hidden">Export</span>
-          </Button>
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="w-5 h-5 mr-2" />
-            <span className="hidden sm:inline">Add Student</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
         </div>
       </div>
-
       <div className="mt-6">
         {showForm ? (
           <div className="bg-white shadow-sm rounded-lg p-6">

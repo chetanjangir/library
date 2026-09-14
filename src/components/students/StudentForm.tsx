@@ -50,6 +50,13 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
   const [newEntryAmount, setNewEntryAmount] = useState('');
   const [newEntryType, setNewEntryType] = useState<'payment' | 'advance'>('payment');
 
+  // Custom monthly plan: an optional negotiated flat rate that overrides the
+  // standard full/half-day fee for this one student's dues calculation.
+  const [customPlanEnabled, setCustomPlanEnabled] = useState<boolean>(!!editingStudent?.customMonthlyAmount);
+  const [customMonthlyAmount, setCustomMonthlyAmount] = useState<string>(
+    editingStudent?.customMonthlyAmount ? String(editingStudent.customMonthlyAmount) : ''
+  );
+
   const [availableSeats, setAvailableSeats] = useState<any[]>([]);
   const [loadingSeats, setLoadingSeats] = useState(false);
   const [settings, setSettings] = useState<any>(null);
@@ -136,11 +143,14 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
   const fullDayAmount = formData.monthlyAmount;
 
   // Month-wise dues, computed live from the payment ledger
+  const parsedCustomMonthlyAmount = customPlanEnabled ? (parseFloat(customMonthlyAmount) || 0) : undefined;
+
   const dueInfo = computeDueInfo({
     dayType: formData.dayType,
     halfDayAmount,
     fullDayAmount,
     monthlyAmount: formData.monthlyAmount,
+    customMonthlyAmount: parsedCustomMonthlyAmount,
     planType: formData.planType,
     startDate: formData.startDate,
     joinDate: formData.startDate,
@@ -184,6 +194,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
       halfDayAmount,
       fullDayAmount,
       monthlyAmount: formData.monthlyAmount,
+      customMonthlyAmount: parsedCustomMonthlyAmount,
       planType: formData.planType,
       startDate: formData.startDate,
       joinDate: formData.startDate,
@@ -199,6 +210,7 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
       subscriptionEndDate: subscriptionEndDate.toISOString(),
       halfDayAmount,
       fullDayAmount,
+      customMonthlyAmount: parsedCustomMonthlyAmount && parsedCustomMonthlyAmount > 0 ? parsedCustomMonthlyAmount : undefined,
       paymentHistory,
       paidAmount: finalDueInfo.totalPaid,
       balanceAmount: finalDueInfo.due,
@@ -487,6 +499,45 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Custom monthly plan */}
+          {formData.planType === 'monthly' && (
+            <div className="flex flex-wrap items-end gap-3 p-3 bg-indigo-50 rounded-md border border-indigo-100">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={customPlanEnabled}
+                  onChange={(e) => setCustomPlanEnabled(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Custom monthly plan
+              </label>
+              {customPlanEnabled && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Custom amount / month</label>
+                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">{getCurrencySymbol(formData.currency)}</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="block w-36 pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      value={customMonthlyAmount}
+                      onChange={(e) => setCustomMonthlyAmount(e.target.value)}
+                      placeholder="e.g. 800"
+                    />
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-gray-500 max-w-xs">
+                {customPlanEnabled
+                  ? 'Dues and advance are calculated using this fixed monthly amount instead of the standard full/half-day fee.'
+                  : 'Enable to assign a one-off negotiated monthly rate for this student.'}
+              </p>
+            </div>
+          )}
+
           {/* Due Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-blue-50 rounded-lg p-4">
             <div>

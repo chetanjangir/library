@@ -13,7 +13,6 @@ function PaymentForm({ students, onSubmit, onCancel, editingPayment }: PaymentFo
   const [formData, setFormData] = useState({
     studentId: editingPayment?.studentId || '',
     amount: editingPayment?.amount || 0,
-    currency: editingPayment?.currency || 'USD' as const,
     currency: editingPayment?.currency || 'INR' as const,
     dueDate: editingPayment?.dueDate ? new Date(editingPayment.dueDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     planType: editingPayment?.planType || 'monthly' as const,

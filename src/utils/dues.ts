@@ -11,11 +11,20 @@ export interface DueInfo {
 
 type DueStudent = Pick<
   Student,
-  'dayType' | 'halfDayAmount' | 'fullDayAmount' | 'monthlyAmount' | 'planType' | 'startDate' | 'joinDate' | 'paymentHistory' | 'paidAmount'
+  'dayType' | 'halfDayAmount' | 'fullDayAmount' | 'monthlyAmount' | 'customMonthlyAmount' | 'planType' | 'startDate' | 'joinDate' | 'paymentHistory' | 'paidAmount'
 >;
 
-/** The amount owed for a single billing cycle (one month for monthly plans, the plan amount otherwise). */
-export function getCycleAmount(student: Pick<Student, 'dayType' | 'halfDayAmount' | 'fullDayAmount' | 'monthlyAmount'>): number {
+/**
+ * The amount owed for a single billing cycle (one month for monthly plans, the
+ * plan amount otherwise). A student on a custom monthly plan uses their
+ * negotiated flat amount instead of the standard full/half-day fee.
+ */
+export function getCycleAmount(
+  student: Pick<Student, 'dayType' | 'halfDayAmount' | 'fullDayAmount' | 'monthlyAmount' | 'customMonthlyAmount' | 'planType'>
+): number {
+  if (student.planType === 'monthly' && student.customMonthlyAmount && student.customMonthlyAmount > 0) {
+    return student.customMonthlyAmount;
+  }
   const monthly = student.monthlyAmount || 0;
   if (student.dayType === 'half') {
     return student.halfDayAmount || monthly * 0.6;
@@ -79,6 +88,53 @@ export function makePaymentRecord(amount: number, type: PaymentRecord['type'] = 
     type,
     note
   };
+}
+
+export interface UpcomingDue {
+  date: string;
+  amount: number;
+  label: string;
+}
+
+type ScheduleStudent = DueStudent & Pick<Student, 'subscriptionEndDate'>;
+
+/**
+ * Projects the student's next few billing due dates and amounts, based on
+ * their plan. Monthly plans get one entry per upcoming month (using the
+ * cycle amount, custom-plan-aware); daily/yearly plans get a single entry
+ * at their subscription renewal date.
+ */
+export function getUpcomingDues(student: ScheduleStudent, monthsAhead = 3, asOf: Date = new Date()): UpcomingDue[] {
+  const cycleAmount = getCycleAmount(student);
+
+  if (student.planType !== 'monthly') {
+    if (student.subscriptionEndDate) {
+      const end = new Date(student.subscriptionEndDate);
+      if (!isNaN(end.getTime()) && end > asOf) {
+        return [{ date: end.toISOString(), amount: cycleAmount, label: 'Renewal due' }];
+      }
+    }
+    return [];
+  }
+
+  const startRaw = student.startDate || student.joinDate;
+  if (!startRaw) return [];
+  const start = new Date(startRaw);
+  if (isNaN(start.getTime())) return [];
+
+  const monthsElapsed = getMonthsElapsed(student, asOf);
+  const upcoming: UpcomingDue[] = [];
+  for (let i = 1; i <= monthsAhead; i++) {
+    const cycleIndex = monthsElapsed + i;
+    const dueDate = new Date(start);
+    dueDate.setMonth(dueDate.getMonth() + cycleIndex - 1);
+    upcoming.push({
+      date: dueDate.toISOString(),
+      amount: cycleAmount,
+      label: `Month ${cycleIndex}`
+    });
+  }
+  return upcoming;
 }
 
 /** Derives the legacy paidAmount/balanceAmount/paymentStatus trio from a payment ledger. */

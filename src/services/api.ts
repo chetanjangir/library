@@ -17,6 +17,21 @@ interface StudentsPageResult {
   expiringSoonCount: number;
 }
 
+interface PaymentsPageParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  planType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+interface PaymentsPageResult {
+  payments: any[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_URL}${endpoint}`;
@@ -125,6 +140,33 @@ class ApiService {
     } catch (error) {
       console.error('Failed to fetch payments:', error);
       return [];
+    }
+  }
+
+  async getPaymentsPaged(params: PaymentsPageParams): Promise<PaymentsPageResult> {
+    const fallback: PaymentsPageResult = {
+      payments: [],
+      pagination: { page: params.page || 1, limit: params.limit || 20, total: 0, totalPages: 1 }
+    };
+
+    try {
+      const qs = new URLSearchParams();
+      qs.set('page', String(params.page || 1));
+      qs.set('limit', String(params.limit || 20));
+      if (params.search) qs.set('search', params.search);
+      if (params.status && params.status !== 'all') qs.set('status', params.status);
+      if (params.planType && params.planType !== 'all') qs.set('planType', params.planType);
+      if (params.dateFrom) qs.set('dateFrom', params.dateFrom);
+      if (params.dateTo) qs.set('dateTo', params.dateTo);
+
+      const result = await this.request(`/payments?${qs.toString()}`);
+      if (!result || !Array.isArray(result.payments)) {
+        return fallback;
+      }
+      return result;
+    } catch (error) {
+      console.error('Failed to fetch paginated payments:', error);
+      return fallback;
     }
   }
 

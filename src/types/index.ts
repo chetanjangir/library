@@ -29,6 +29,7 @@ export interface Student {
   monthlyAmount: number;
   halfDayAmount?: number;
   fullDayAmount?: number;
+  customMonthlyAmount?: number;
   paymentStatus?: 'paid' | 'due' | 'partial';
   paidAmount?: number;
   balanceAmount?: number;
