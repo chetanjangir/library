@@ -144,8 +144,17 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-gray-900 truncate max-w-[9rem] sm:max-w-none">{student.name}</div>
+                    {student.fatherName && (
+                      <div className="text-xs text-gray-500 truncate">Father: {student.fatherName}</div>
+                    )}
                     <div className="text-xs text-gray-500 truncate">{student.mobile}</div>
                     <div className="text-xs text-gray-500 truncate hidden sm:block">{student.email}</div>
+                    {student.biometricId && (
+                      <div className="text-xs text-gray-500 truncate">Bio ID: {student.biometricId}</div>
+                    )}
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      Start: {new Date(student.startDate || student.joinDate).toLocaleDateString()}
+                    </div>
                     <div className="text-xs text-gray-900 lg:hidden mt-0.5">
                       {student.seatNumber ? `Seat ${student.seatNumber}` : 'No seat'} · <span className="capitalize">{student.planType}</span> <span className="capitalize">({student.dayType})</span>
                     </div>
