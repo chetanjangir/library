@@ -66,6 +66,8 @@ export interface Statistic {
   value: number | string;
   change: number;
   trend: 'up' | 'down';
+  icon?: string;
+  color?: 'indigo' | 'green' | 'blue' | 'amber';
 }
 
 export interface NotificationSettings {

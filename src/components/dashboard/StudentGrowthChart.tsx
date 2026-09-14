@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, TrendingUp } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { Student } from '../../types';
 
 interface StudentGrowthChartProps {
@@ -8,89 +8,56 @@ interface StudentGrowthChartProps {
 
 function StudentGrowthChart({ students }: StudentGrowthChartProps) {
   const now = new Date();
-  
-  // Generate last 6 months data
   const months = [];
+
   for (let i = 5; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthStudents = students.filter(student => {
-      const joinDate = new Date(student.joinDate);
-      return joinDate.getMonth() === date.getMonth() && 
-             joinDate.getFullYear() === date.getFullYear();
+      const joinDate = new Date(student.createdAt || student.joinDate);
+      return joinDate.getMonth() === date.getMonth() && joinDate.getFullYear() === date.getFullYear();
     });
-    
+
     months.push({
       name: date.toLocaleDateString('en-US', { month: 'short' }),
-      value: monthStudents.length,
-      cumulative: students.filter(student => {
-        const joinDate = new Date(student.joinDate);
-        return joinDate <= date;
-      }).length
+      value: monthStudents.length
     });
   }
 
-  const maxValue = Math.max(...months.map(m => m.value));
-  const totalGrowth = months[months.length - 1]?.cumulative - months[0]?.cumulative || 0;
-  const growthRate = months[0]?.cumulative > 0 ? 
-    Math.round((totalGrowth / months[0].cumulative) * 100) : 0;
+  const totalGrowth = months.reduce((sum, m) => sum + m.value, 0);
+  const thisMonth = months[months.length - 1]?.value || 0;
+  const prevMonth = months[months.length - 2]?.value || 0;
+  const growthPct = prevMonth > 0 ? Math.round(((thisMonth - prevMonth) / prevMonth) * 100) : (thisMonth > 0 ? 100 : 0);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="flex items-center justify-between mb-1">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Student Growth</h2>
-          <p className="text-sm text-gray-600">New student registrations over time</p>
+          <h2 className="text-base font-semibold text-gray-900">Student Growth</h2>
+          <p className="text-sm text-gray-500">New registrations over time</p>
         </div>
-        <Users className="w-5 h-5 text-blue-600" />
       </div>
 
-      {/* Chart */}
-      <div className="flex items-end space-x-2 h-48 mb-4">
-        {months.map((month, index) => {
-          const height = maxValue > 0 ? (month.value / maxValue) * 160 : 0;
-          const isCurrentMonth = index === months.length - 1;
-          
-          return (
-            <div key={month.name} className="flex flex-col items-center flex-1">
-              <div 
-                className={`w-full rounded-t transition-all duration-300 hover:opacity-80 ${
-                  isCurrentMonth ? 'bg-blue-600' : 'bg-blue-400'
-                }`}
-                style={{ height: `${height}px` }}
-                title={`${month.name}: ${month.value} new students`}
-              />
-              <span className="mt-2 text-xs text-gray-600 font-medium">{month.name}</span>
-              <span className="text-xs text-gray-500">{month.value}</span>
-            </div>
-          );
-        })}
+      <div className="flex items-baseline gap-2 mb-4">
+        <span className="text-3xl font-semibold text-gray-900">{totalGrowth}</span>
+        <span className={`text-sm font-medium ${growthPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          {growthPct >= 0 ? '+' : ''}{growthPct}% this period
+        </span>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-1">
-            <Users className="w-4 h-4 text-gray-500 mr-1" />
-          </div>
-          <p className="text-sm text-gray-600">This Month</p>
-          <p className="text-lg font-semibold text-gray-900">
-            {months[months.length - 1]?.value || 0}
-          </p>
-        </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-1">
-            <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-          </div>
-          <p className="text-sm text-gray-600">Growth Rate</p>
-          <p className="text-lg font-semibold text-gray-900">{growthRate}%</p>
-        </div>
-        <div className="text-center">
-          <div className="flex items-center justify-center mb-1">
-            <Users className="w-4 h-4 text-blue-500 mr-1" />
-          </div>
-          <p className="text-sm text-gray-600">Total Students</p>
-          <p className="text-lg font-semibold text-gray-900">{students.length}</p>
-        </div>
+      <div className="h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={months} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
+            <Tooltip formatter={(value: number) => [value, 'New students']} />
+            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+              {months.map((month, index) => (
+                <Cell key={month.name} fill={index === months.length - 1 ? '#4f46e5' : '#c7d2fe'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

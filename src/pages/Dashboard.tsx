@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Users, DollarSign, Calendar, TrendingUp, Plus, Bell, Search, BarChart3 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Bell, Search, AlertTriangle, XCircle, CheckCircle2, UserPlus } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import RevenueChart from '../components/dashboard/RevenueChart';
+import PaymentCollectionCard from '../components/dashboard/PaymentCollectionCard';
 import StudentGrowthChart from '../components/dashboard/StudentGrowthChart';
 import RecentStudents from '../components/dashboard/RecentStudents';
-import QuickActions from '../components/dashboard/QuickActions';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { computeDueInfo } from '../utils/dues';
 import type { Student, Statistic } from '../types';
 
 function Dashboard() {
   const { isAdmin, user } = useAuth();
+  const admin = isAdmin();
   const [students, setStudents] = useState<Student[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,39 +26,13 @@ function Dashboard() {
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('Loading dashboard data...');
-      
-      if (isAdmin()) {
-        // Admin sees all data
-        const [studentsData, paymentsData] = await Promise.all([
-          apiService.getStudents(),
-          apiService.getPayments()
-        ]);
-        
-        console.log('Dashboard data loaded:', {
-          students: studentsData.length,
-          payments: paymentsData.length,
-          paidPayments: paymentsData.filter(p => p.status === 'paid').length,
-          paymentsWithPaidDate: paymentsData.filter(p => p.status === 'paid' && p.paidDate).length,
-          samplePayment: paymentsData[0]
-        });
-        
+      const studentsData = await apiService.getStudents();
+
+      if (admin) {
         setStudents(studentsData);
-        setPayments(paymentsData);
       } else {
-        // Student sees only their own data
-        const [studentsData, paymentsData] = await Promise.all([
-          apiService.getStudents(),
-          apiService.getPayments()
-        ]);
-        
-        // Filter to show only current student's data
-        const currentStudent = studentsData.find(s => s.id === user?.studentId);
-        const studentPayments = paymentsData.filter(p => p.studentId === user?.studentId);
-        
+        const currentStudent = studentsData.find((s: Student) => s.id === user?.studentId);
         setStudents(currentStudent ? [currentStudent] : []);
-        setPayments(studentPayments);
       }
     } catch (err) {
       setError('Failed to load dashboard data');
@@ -66,104 +42,82 @@ function Dashboard() {
     }
   };
 
-  // Calculate statistics
+  const now = new Date();
   const activeStudents = students.filter(s => s.status === 'active');
-  
-  // Calculate revenue from MongoDB data
-  const totalRevenue = payments
-    .filter(p => p.status === 'paid')
-    .reduce((sum, payment) => sum + payment.amount, 0);
-
-  const monthlyRevenue = isAdmin() ? 
-    activeStudents.reduce((sum, student) => {
-      const amount = student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount;
-      return sum + amount;
-    }, 0) : 
-    (students[0]?.dayType === 'half' ? students[0]?.halfDayAmount || 0 : students[0]?.fullDayAmount || 0);
 
   const expiringSoon = students.filter(student => {
-    const endDate = new Date(student.subscriptionEndDate);
-    const now = new Date();
-    const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil((new Date(student.subscriptionEndDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return diffDays <= 7 && diffDays > 0;
   });
 
-  const expiredStudents = students.filter(student => {
-    const endDate = new Date(student.subscriptionEndDate);
-    const now = new Date();
-    return endDate < now;
-  });
+  const studentsWithDues = students.filter(s => s.status !== 'inactive' && computeDueInfo(s).due > 0);
 
-  const occupancyRate = isAdmin() ? Math.round((activeStudents.length / 100) * 100) : 0;
+  const startOfWeek = (() => {
+    const day = now.getDay();
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+  })();
 
-  // New students this month
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const newThisMonth = students.filter(student => {
-    const joinDate = new Date(student.joinDate);
-    return joinDate.getMonth() === currentMonth && joinDate.getFullYear() === currentYear;
-  }).length;
+  const paidThisWeek = students.reduce((count, s) => {
+    const hasPaymentThisWeek = (s.paymentHistory || []).some(p => new Date(p.date) >= startOfWeek);
+    return hasPaymentThisWeek ? count + 1 : count;
+  }, 0);
 
-  // Calculate payment statistics
-  const totalCollected = payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
-  const totalDues = payments.filter(p => p.status === 'pending' || p.status === 'due').reduce((sum, p) => sum + p.amount, 0);
-  const overdue = payments.filter(p => p.status === 'overdue' || p.status === 'expired').reduce((sum, p) => sum + p.amount, 0);
+  const newThisWeek = students.filter(s => new Date(s.createdAt || s.joinDate) >= startOfWeek).length;
+
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthlyRevenue = students.reduce((sum, s) => {
+    const paidThisMonth = (s.paymentHistory || [])
+      .filter(p => {
+        const d = new Date(p.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((a, p) => a + (p.amount || 0), 0);
+    return sum + paidThisMonth;
+  }, 0);
+  const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
+  const prevMonthRevenue = students.reduce((sum, s) => {
+    const paid = (s.paymentHistory || [])
+      .filter(p => {
+        const d = new Date(p.date);
+        return d.getMonth() === prevMonthDate.getMonth() && d.getFullYear() === prevMonthDate.getFullYear();
+      })
+      .reduce((a, p) => a + (p.amount || 0), 0);
+    return sum + paid;
+  }, 0);
+  const revenueChangePct = prevMonthRevenue > 0
+    ? Math.round(((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100)
+    : (monthlyRevenue > 0 ? 100 : 0);
+
+  const occupancyRate = admin && students.length > 0
+    ? Math.round((students.filter(s => s.seatNumber).length / 100) * 100)
+    : 0;
+
+  const totalCollected = students.reduce((sum, s) => sum + computeDueInfo(s).totalPaid, 0);
+  const totalDue = studentsWithDues.reduce((sum, s) => sum + computeDueInfo(s).due, 0);
+  const collectionPct = (totalCollected + totalDue) > 0
+    ? Math.round((totalCollected / (totalCollected + totalDue)) * 100)
+    : 100;
 
   const adminStats: Statistic[] = [
-    {
-      label: 'Active Students',
-      value: activeStudents.length.toString(),
-      change: newThisMonth > 0 ? Math.round((newThisMonth / activeStudents.length) * 100) : 0,
-      trend: 'up'
-    },
-    {
-      label: 'Monthly Revenue',
-      value: `₹${monthlyRevenue.toLocaleString()}`,
-      change: 8,
-      trend: 'up'
-    },
-    {
-      label: 'Seat Occupancy',
-      value: `${occupancyRate}%`,
-      change: 5,
-      trend: 'up'
-    },
-    {
-      label: 'Payment Collection',
-      value: `₹${totalCollected.toLocaleString()}`,
-      change: totalDues > 0 ? Math.round((totalCollected / (totalCollected + totalDues)) * 100) : 100,
-      trend: totalDues > 0 ? 'up' : 'down'
-    }
+    { label: 'Active Students', value: activeStudents.length.toString(), change: newThisWeek, trend: 'up', icon: 'users', color: 'indigo' },
+    { label: 'Monthly Revenue', value: `₹${monthlyRevenue.toLocaleString()}`, change: revenueChangePct, trend: revenueChangePct >= 0 ? 'up' : 'down', icon: 'rupee', color: 'green' },
+    { label: 'Seat Occupancy', value: `${occupancyRate}%`, change: occupancyRate, trend: 'up', icon: 'seat', color: 'blue' },
+    { label: 'Payment Collection', value: `${collectionPct}%`, change: collectionPct, trend: collectionPct >= 90 ? 'up' : 'down', icon: 'card', color: 'amber' }
   ];
 
+  const studentDue = students[0] ? computeDueInfo(students[0]).due : 0;
   const studentStats: Statistic[] = [
-    {
-      label: 'My Status',
-      value: students[0]?.status || 'N/A',
-      change: 0,
-      trend: 'up'
-    },
-    {
-      label: 'Monthly Fee',
-      value: `₹${monthlyRevenue}`,
-      change: 0,
-      trend: 'up'
-    },
-    {
-      label: 'Payments Due',
-      value: `₹${totalDues}`,
-      change: 0,
-      trend: totalDues > 0 ? 'down' : 'up'
-    },
-    {
-      label: 'Seat Number',
-      value: students[0]?.seatNumber?.toString() || 'N/A',
-      change: 0,
-      trend: 'up'
-    }
+    { label: 'My Status', value: students[0]?.status || 'N/A', change: 0, trend: 'up', icon: 'users', color: 'indigo' },
+    { label: 'Cycle Amount', value: `₹${students[0] ? computeDueInfo(students[0]).cycleAmount : 0}`, change: 0, trend: 'up', icon: 'rupee', color: 'green' },
+    { label: 'Payments Due', value: `₹${studentDue.toFixed(0)}`, change: 0, trend: studentDue > 0 ? 'down' : 'up', icon: 'card', color: 'amber' },
+    { label: 'Seat Number', value: students[0]?.seatNumber?.toString() || 'N/A', change: 0, trend: 'up', icon: 'seat', color: 'blue' }
   ];
 
-  const stats = isAdmin() ? adminStats : studentStats;
+  const stats = admin ? adminStats : studentStats;
+  const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 18 ? 'Good afternoon' : 'Good evening';
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -181,128 +135,165 @@ function Dashboard() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isAdmin() ? 'Admin Dashboard' : 'Student Dashboard'}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {isAdmin() 
-              ? "Welcome back! Here's what's happening with your library." 
-              : `Welcome back, ${user?.name}! Here's your account overview.`
-            }
+          <p className="text-sm text-gray-500">
+            {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 mt-0.5">{greeting}, {user?.name?.split(' ')[0] || 'there'}</h1>
         </div>
-        {isAdmin() && (
-          <div className="flex space-x-3 mt-4 sm:mt-0">
-            <button 
-              onClick={() => window.location.href = '/analytics'}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              View Analytics
-            </button>
-            <button 
+
+        <div className="flex items-center gap-3">
+          <div className="relative hidden sm:block">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search anything..."
+              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-56 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              readOnly
+              onFocus={(e) => e.target.blur()}
               onClick={() => window.location.href = '/students'}
-              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            />
+          </div>
+          <Link
+            to="/expiring"
+            className="relative p-2.5 text-gray-500 hover:text-gray-700 hover:bg-white rounded-lg transition-colors"
+            title="Alerts"
+          >
+            <Bell className="w-5 h-5" />
+            {expiringSoon.length > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+            )}
+          </Link>
+          {admin && (
+            <Link
+              to="/students"
+              className="inline-flex items-center px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Student
-            </button>
-          </div>
-        )}
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <StatCard key={stat.label} stat={stat} />
         ))}
       </div>
 
       {/* Alerts */}
-      {isAdmin() && (expiringSoon.length > 0 || expiredStudents.length > 0) && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <Bell className="w-5 h-5 text-yellow-600 mr-2" />
-            <h3 className="text-sm font-medium text-yellow-800">Subscription Alerts</h3>
+      {admin && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">Alerts</h3>
+            <p className="text-xs text-gray-500">Items that need your attention</p>
           </div>
-          <div className="mt-2 text-sm text-yellow-700">
-            {expiringSoon.length > 0 && (
-              <p>{expiringSoon.length} students have subscriptions expiring within 7 days.</p>
-            )}
-            {expiredStudents.length > 0 && (
-              <p>{expiredStudents.length} students have expired subscriptions.</p>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Link to="/expiring" className="bg-amber-50 border border-amber-200 rounded-xl p-4 hover:border-amber-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-amber-800 text-sm font-medium">
+                  <AlertTriangle className="w-4 h-4 mr-1.5" />
+                  Expiring soon
+                </div>
+                <span className="text-lg font-semibold text-amber-800">{expiringSoon.length}</span>
+              </div>
+              <p className="text-xs text-amber-700 mt-1">subscriptions expire this week</p>
+            </Link>
+
+            <Link to="/dues" className="bg-red-50 border border-red-200 rounded-xl p-4 hover:border-red-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-red-800 text-sm font-medium">
+                  <XCircle className="w-4 h-4 mr-1.5" />
+                  Dues pending
+                </div>
+                <span className="text-lg font-semibold text-red-800">{studentsWithDues.length}</span>
+              </div>
+              <p className="text-xs text-red-700 mt-1">students with outstanding balance</p>
+            </Link>
+
+            <Link to="/payments" className="bg-green-50 border border-green-200 rounded-xl p-4 hover:border-green-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-green-800 text-sm font-medium">
+                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                  Paid this week
+                </div>
+                <span className="text-lg font-semibold text-green-800">{paidThisWeek}</span>
+              </div>
+              <p className="text-xs text-green-700 mt-1">students recorded a payment</p>
+            </Link>
+
+            <Link to="/students" className="bg-blue-50 border border-blue-200 rounded-xl p-4 hover:border-blue-300 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center text-blue-800 text-sm font-medium">
+                  <UserPlus className="w-4 h-4 mr-1.5" />
+                  New this week
+                </div>
+                <span className="text-lg font-semibold text-blue-800">{newThisWeek}</span>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">students joined this week</p>
+            </Link>
           </div>
         </div>
       )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Chart */}
-        <div className="lg:col-span-2">
-          <RevenueChart students={students} payments={payments} onRefresh={loadDashboardData} />
-        </div>
-
-        {/* Quick Actions */}
-        {isAdmin() && (
-          <div>
-            <QuickActions 
-              expiringSoon={expiringSoon.length}
-              expired={expiredStudents.length}
-              onRefresh={loadDashboardData}
-            />
+      {admin ? (
+        <>
+          {/* Revenue + Payment Collection */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <RevenueChart students={students} onRefresh={loadDashboardData} />
+            </div>
+            <div>
+              <PaymentCollectionCard students={students} />
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Bottom Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Student Growth Chart */}
-        {isAdmin() && <StudentGrowthChart students={students} />}
-        
-        {/* Recent Students */}
-        {isAdmin() ? (
-          <RecentStudents students={students.slice(0, 5)} onRefresh={loadDashboardData} />
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">My Account Details</h2>
-            {students[0] && (
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Name:</span>
-                  <span className="font-medium">{students[0].name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Email:</span>
-                  <span className="font-medium">{students[0].email}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Mobile:</span>
-                  <span className="font-medium">{students[0].mobile}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Seat Number:</span>
-                  <span className="font-medium">{students[0].seatNumber || 'Not assigned'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Plan Type:</span>
-                  <span className="font-medium capitalize">{students[0].planType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Day Type:</span>
-                  <span className="font-medium capitalize">{students[0].dayType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subscription Ends:</span>
-                  <span className="font-medium">{new Date(students[0].subscriptionEndDate).toLocaleDateString()}</span>
-                </div>
+          {/* Student Growth + Recent Students */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <StudentGrowthChart students={students} />
+            <RecentStudents students={students} />
+          </div>
+        </>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">My Account Details</h2>
+          {students[0] && (
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Name:</span>
+                <span className="font-medium">{students[0].name}</span>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Email:</span>
+                <span className="font-medium">{students[0].email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Mobile:</span>
+                <span className="font-medium">{students[0].mobile}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Seat Number:</span>
+                <span className="font-medium">{students[0].seatNumber || 'Not assigned'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Plan Type:</span>
+                <span className="font-medium capitalize">{students[0].planType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Day Type:</span>
+                <span className="font-medium capitalize">{students[0].dayType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Subscription Ends:</span>
+                <span className="font-medium">{new Date(students[0].subscriptionEndDate).toLocaleDateString()}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
