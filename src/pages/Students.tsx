@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, MessageCircle, AlertTriangle, Search, Filter, Calendar, X } from 'lucide-react';
+import { Plus, MessageCircle, AlertTriangle, Search, Filter, Calendar, X, Download } from 'lucide-react';
 import Button from '../components/ui/Button';
 import StudentForm from '../components/students/StudentForm';
 import StudentList from '../components/students/StudentList';
@@ -8,6 +8,14 @@ import { useToast } from '../hooks/useToast';
 import { apiService } from '../services/api';
 import { computeDueInfo, makePaymentRecord } from '../utils/dues';
 import type { Student } from '../types';
+
+function escapeCsvValue(value: unknown): string {
+  const str = String(value ?? '');
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
 
 function Students() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -359,6 +367,56 @@ function Students() {
     expiryFilter !== null ? `${expiryFilter}d` : null
   ].filter(Boolean).length;
 
+  const handleDownloadStudents = () => {
+    const headers = [
+      'Name', "Father's Name", 'Mobile', 'Email', 'Aadhaar Number', 'Address',
+      'Seat', 'Plan Type', 'Day Type', 'Half Day Slot', 'Start Date', 'Subscription End Date',
+      'Currency', 'Cycle Amount', 'Total Paid', 'Balance Due', 'Advance/Credit',
+      'Payment Status', 'Status'
+    ];
+
+    const rows = filteredStudents.map(student => {
+      const info = computeDueInfo(student);
+      return [
+        student.name,
+        student.fatherName || '',
+        student.mobile,
+        student.email,
+        student.aadhaarNumber || '',
+        student.address || '',
+        student.seatNumber ?? '',
+        student.planType,
+        student.dayType,
+        student.halfDaySlot || '',
+        student.startDate ? new Date(student.startDate).toLocaleDateString() : '',
+        student.subscriptionEndDate ? new Date(student.subscriptionEndDate).toLocaleDateString() : '',
+        student.currency,
+        info.cycleAmount.toFixed(2),
+        info.totalPaid.toFixed(2),
+        info.due.toFixed(2),
+        info.advance.toFixed(2),
+        student.paymentStatus || 'due',
+        student.status
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(escapeCsvValue).join(','))
+      .join('\r\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `students-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showSuccess('Download Started', `Exported ${filteredStudents.length} student${filteredStudents.length !== 1 ? 's' : ''} to CSV`);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -566,6 +624,11 @@ function Students() {
               <span className="sm:hidden">Notify ({expiringSoonStudents.length})</span>
             </Button>
           )}
+          <Button variant="secondary" onClick={handleDownloadStudents} disabled={filteredStudents.length === 0}>
+            <Download className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Download ({filteredStudents.length})</span>
+            <span className="sm:hidden">Export</span>
+          </Button>
           <Button onClick={() => setShowForm(true)}>
             <Plus className="w-5 h-5 mr-2" />
             <span className="hidden sm:inline">Add Student</span>

@@ -33,6 +33,7 @@ export interface Student {
   paidAmount?: number;
   balanceAmount?: number;
   paymentHistory?: PaymentRecord[];
+  createdAt?: string;
 }
 
 export interface Payment {

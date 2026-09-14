@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, MessageCircle, AlertTriangle, Trash2, DollarSign, UserCheck, User } from 'lucide-react';
+import { Edit, MessageCircle, AlertTriangle, Trash2, User } from 'lucide-react';
 import type { Student } from '../../types';
 import Button from '../ui/Button';
 import { useToast } from '../../hooks/useToast';
@@ -49,12 +49,16 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
     return end < now;
   };
 
-  // Sort students by seat number
+  // Sort students with the most recently added first. Falls back to comparing
+  // Mongo ObjectIds (which are chronologically sortable as strings) for any
+  // legacy records that don't have a createdAt timestamp.
   const sortedStudents = [...students].sort((a, b) => {
-    if (!a.seatNumber && !b.seatNumber) return 0;
-    if (!a.seatNumber) return 1;
-    if (!b.seatNumber) return -1;
-    return a.seatNumber - b.seatNumber;
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : NaN;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : NaN;
+    if (!isNaN(aTime) && !isNaN(bTime)) return bTime - aTime;
+    if (!isNaN(aTime)) return -1;
+    if (!isNaN(bTime)) return 1;
+    return String(b.id).localeCompare(String(a.id));
   });
 
   const getPaymentStatusColor = (paymentStatus: string) => {
@@ -99,19 +103,13 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Contact</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Start Date</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seat</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Plan</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Add Balance</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pay Status</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Subscription</th>
-            <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+            <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+            <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Seat / Plan</th>
+            <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment & Dues</th>
+            <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Record Payment</th>
+            <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Expiry / Status</th>
+            <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
@@ -121,10 +119,12 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
               isExpiringSoon(student.subscriptionEndDate) ? 'bg-yellow-50' : 
               !student.seatNumber ? 'bg-orange-50 border-l-4 border-orange-400' : ''
             }>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {index + 1}
               </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+
+              {/* Student: photo, name, contact, plan/seat (shown here on small screens) */}
+              <td className="px-2 sm:px-4 py-4">
                 <div className="flex items-start space-x-3">
                   <div
                     className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0"
@@ -141,61 +141,39 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                       <User className="w-5 h-5 text-gray-400" />
                     )}
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900 truncate max-w-32 sm:max-w-none">{student.name}</div>
-                    {student.fatherName && (
-                      <div className="text-xs text-gray-500">Father: {student.fatherName}</div>
-                    )}
-                    <div className="text-sm text-gray-500 sm:hidden truncate max-w-32">{student.mobile}</div>
-                    <div className="text-sm text-gray-500 hidden sm:block truncate">{student.email}</div>
-                    {student.aadhaarNumber && (
-                      <div className="text-xs text-gray-500">Aadhaar: {student.aadhaarNumber}</div>
-                    )}
-                    {student.biometricId && (
-                      <div className="text-xs text-gray-500">Bio ID: {student.biometricId}</div>
-                    )}
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate max-w-[9rem] sm:max-w-none">{student.name}</div>
+                    <div className="text-xs text-gray-500 truncate">{student.mobile}</div>
+                    <div className="text-xs text-gray-500 truncate hidden sm:block">{student.email}</div>
+                    <div className="text-xs text-gray-900 lg:hidden mt-0.5">
+                      {student.seatNumber ? `Seat ${student.seatNumber}` : 'No seat'} · <span className="capitalize">{student.planType}</span> <span className="capitalize">({student.dayType})</span>
+                    </div>
                   </div>
                 </div>
               </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
-                <div>
-                  <div>{student.mobile}</div>
-                  {student.address && (
-                    <div className="text-xs text-gray-500 truncate max-w-32" title={student.address}>
-                      {student.address}
-                    </div>
-                  )}
-                </div>
-              </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
-                <div className="text-sm text-gray-900">
-                  {new Date(student.startDate || student.joinDate).toLocaleDateString()}
-                </div>
-              </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+
+              {/* Seat / Plan (desktop only - shown inline on mobile above) */}
+              <td className="px-2 sm:px-4 py-4 whitespace-nowrap hidden lg:table-cell">
                 <div className="text-sm text-gray-900">
                   {student.seatNumber ? `Seat ${student.seatNumber}` : 'Not assigned'}
                 </div>
-                {student.dayType === 'half' && (
-                  <div className="text-xs text-gray-500 capitalize hidden sm:block">
-                    {student.halfDaySlot} slot
-                  </div>
-                )}
+                <div className="text-xs text-gray-500 capitalize">
+                  {student.planType} · {student.dayType} day{student.dayType === 'half' && student.halfDaySlot ? ` (${student.halfDaySlot})` : ''}
+                </div>
+                <div className="text-xs text-gray-400">
+                  Since {new Date(student.startDate || student.joinDate).toLocaleDateString()}
+                </div>
               </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
-                <div className="text-sm text-gray-900 capitalize">{student.planType}</div>
-                <div className="text-xs text-gray-500 capitalize">{student.dayType} day</div>
-              </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {getCurrencySymbol(student.currency)}{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
-              </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(student.paymentStatus || 'due')}`}>
+
+              {/* Payment & Dues: cycle amount, status badge, paid/due/advance */}
+              <td className="px-2 sm:px-4 py-4 whitespace-nowrap">
+                <div className="text-sm text-gray-900">
+                  {getCurrencySymbol(student.currency)}{student.dayType === 'half' ? student.halfDayAmount : student.fullDayAmount}
+                  <span className="text-xs text-gray-400">/cycle</span>
+                </div>
+                <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${getPaymentStatusColor(student.paymentStatus || 'due')}`}>
                   {student.paymentStatus || 'due'}
                 </span>
-                <div className="text-xs text-gray-500 mt-1">
-                  Paid: {getCurrencySymbol(student.currency)}{computeDueInfo(student).totalPaid.toFixed(2)}
-                </div>
                 {computeDueInfo(student).due > 0 && (
                   <div className="text-xs text-red-600 mt-1">
                     Due: {getCurrencySymbol(student.currency)}{computeDueInfo(student).due.toFixed(2)}
@@ -208,21 +186,23 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                   </div>
                 )}
               </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+
+              {/* Record Payment: add-balance input + quick status select, together */}
+              <td className="px-2 sm:px-4 py-4 whitespace-nowrap">
                 <div className="flex items-center space-x-1">
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     placeholder="Amount"
-                    className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-16 sm:w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                     value={balanceInputs[student.id] || ''}
                     onChange={(e) => setBalanceInputs(prev => ({ ...prev, [student.id]: e.target.value }))}
                   />
                   <button
                     onClick={() => handleBalanceUpdate(student)}
                     className="p-1 text-green-600 hover:text-green-800"
-                    title="Add Balance"
+                    title="Add Payment"
                     disabled={!balanceInputs[student.id] || parseFloat(balanceInputs[student.id]) <= 0}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -230,12 +210,10 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                     </svg>
                   </button>
                 </div>
-              </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                 <select
                   value={student.paymentStatus || 'due'}
                   onChange={(e) => handlePaymentStatusUpdate(student, e.target.value)}
-                  className={`px-2 py-1 text-xs font-semibold rounded border-0 cursor-pointer ${
+                  className={`mt-1 px-2 py-1 text-xs font-semibold rounded border-0 cursor-pointer ${
                     student.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
                     student.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
@@ -246,7 +224,9 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                   <option value="due">Due</option>
                 </select>
               </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap hidden md:table-cell">
+
+              {/* Expiry / Status (desktop only) */}
+              <td className="px-2 sm:px-4 py-4 whitespace-nowrap hidden md:table-cell">
                 <div className="text-sm text-gray-900">
                   Expires: {new Date(student.subscriptionEndDate).toLocaleDateString()}
                 </div>
@@ -262,10 +242,8 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                     Expired
                   </div>
                 )}
-              </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                 <select
-                  className={`px-2 py-1 text-xs font-semibold rounded border-0 ${
+                  className={`mt-1 px-2 py-1 text-xs font-semibold rounded border-0 ${
                     student.status === 'active' ? 'bg-green-100 text-green-800' :
                     student.status === 'expired' ? 'bg-red-100 text-red-800' :
                     student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
@@ -278,13 +256,9 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                   <option value="inactive">Inactive</option>
                   <option value="expired">Expired</option>
                 </select>
-                {isExpired(student.subscriptionEndDate) && student.status !== 'expired' && (
-                  <div className="text-xs text-red-600 mt-1">
-                    Subscription expired
-                  </div>
-                )}
               </td>
-              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+
+              <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex space-x-1 justify-end">
                 <button 
                   onClick={() => onEdit(student)}
