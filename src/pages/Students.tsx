@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, MessageCircle, AlertTriangle, Search, Filter, Calendar, X, Download } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Plus, MessageCircle, AlertTriangle, Search, Calendar, X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '../components/ui/Button';
 import StudentForm from '../components/students/StudentForm';
 import StudentList from '../components/students/StudentList';
@@ -8,6 +8,8 @@ import { useToast } from '../hooks/useToast';
 import { apiService } from '../services/api';
 import { computeDueInfo, makePaymentRecord } from '../utils/dues';
 import type { Student } from '../types';
+
+const PAGE_SIZE = 20;
 
 function escapeCsvValue(value: unknown): string {
   const str = String(value ?? '');
@@ -23,23 +25,47 @@ function Students() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [prefilledSeatNumber, setPrefilledSeatNumber] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'expired'>('all');
   const [seatFilter, setSeatFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'due' | 'partial'>('all');
   const [expiryFilter, setExpiryFilter] = useState<number | null>(null);
   const [showExpiryInput, setShowExpiryInput] = useState(false);
   const [customExpiryDays, setCustomExpiryDays] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
+  const [expiringSoonCount, setExpiringSoonCount] = useState(0);
   const { toasts, removeToast, showSuccess, showError } = useToast();
 
-  // Load students on component mount
-  React.useEffect(() => {
-    loadStudents();
-  }, []);
+  // Debounce the search box so we don't hit the API on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  const filterKey = JSON.stringify({ debouncedSearch, statusFilter, seatFilter, paymentFilter, expiryFilter });
+  const prevFilterKey = useRef(filterKey);
+
+  // Load the current page whenever the page number or any filter changes.
+  // When a filter changes we first snap back to page 1 (without an extra
+  // fetch) and let the page-change re-run this effect to do the actual fetch.
+  useEffect(() => {
+    if (prevFilterKey.current !== filterKey) {
+      prevFilterKey.current = filterKey;
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+    loadStudentsPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterKey]);
 
   // Check for seat number from URL params
-  React.useEffect(() => {
+  useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const seatParam = urlParams.get('seat');
     if (seatParam) {
@@ -52,17 +78,26 @@ function Students() {
       }
     }
   }, []);
-  
-  const loadStudents = async () => {
+
+  const loadStudentsPage = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.getStudents();
-      setStudents(data);
+      const result = await apiService.getStudentsPaged({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedSearch,
+        status: statusFilter,
+        seatFilter,
+        paymentStatus: paymentFilter,
+        expiryDays: expiryFilter
+      });
+      setStudents(result.students);
+      setPagination(result.pagination);
+      setExpiringSoonCount(result.expiringSoonCount || 0);
     } catch (err) {
       setError('Failed to load students. Please check your database connection.');
       console.error('Error loading students:', err);
-      // Set empty array as fallback
       setStudents([]);
     } finally {
       setLoading(false);
@@ -110,10 +145,17 @@ function Students() {
         }
       }
       
-      await loadStudents();
       setShowForm(false);
       setEditingStudent(null);
       setPrefilledSeatNumber(undefined);
+
+      // Newly added students sort to the top (most recent first) - jump back
+      // to page 1 so the admin sees it; otherwise just refresh the current page.
+      if (!editingStudent && page !== 1) {
+        setPage(1);
+      } else {
+        await loadStudentsPage();
+      }
       
       showSuccess(
         `Student ${editingStudent ? 'Updated' : 'Added'}`,
@@ -137,7 +179,7 @@ function Students() {
     if (confirm(`Are you sure you want to delete ${student.name}? This action cannot be undone.`)) {
       try {
         await apiService.deleteStudent(student.id);
-        await loadStudents();
+        await loadStudentsPage();
         showSuccess('Student Deleted', `${student.name} deleted successfully!`);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to delete student';
@@ -165,7 +207,7 @@ function Students() {
       };
 
       await apiService.updateStudent(student.id, updateData);
-      await loadStudents();
+      await loadStudentsPage();
       showSuccess(
         'Payment Added',
         `₹${amount} added to ${student.name}'s account. Remaining due: ₹${info.due.toFixed(2)}`
@@ -186,12 +228,11 @@ function Students() {
       };
 
       await apiService.updateStudent(student.id, updateData);
-      await loadStudents();
+      await loadStudentsPage();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update status';
       setError(errorMessage);
       throw new Error(errorMessage);
-      console.error('Error updating status:', err);
     }
   };
 
@@ -252,7 +293,7 @@ function Students() {
         console.error('Error updating related payments:', paymentError);
       }
       
-      await loadStudents();
+      await loadStudentsPage();
       
       // Show success notification
       showSuccess('Payment Status Updated', `${student.name} payment status changed to ${newPaymentStatus}`);
@@ -261,15 +302,9 @@ function Students() {
       setError(errorMessage);
       showError('Update Failed', errorMessage);
       throw new Error(errorMessage);
-      console.error('Error updating payment status:', err);
     }
   };
 
-  const getCurrencySymbol = (currency: string) => {
-    const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
-    return symbols[currency as keyof typeof symbols] || currency;
-  };
-  
   const handleSendReminder = async (student: Student) => {
     try {
       const response = await fetch('/api/whatsapp', {
@@ -303,42 +338,17 @@ function Students() {
     }
   };
 
-  const getExpiringSoonStudents = () => {
-    const now = new Date();
-    return students.filter(student => {
-      const endDate = new Date(student.subscriptionEndDate);
-      const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      return diffDays <= 7 && diffDays > 0;
-    });
-  };
-
-  const expiringSoonStudents = getExpiringSoonStudents();
-
-  // Filter students based on search and status
-  const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.mobile.includes(searchTerm);
-    
-    const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
-    
-    const matchesSeat = seatFilter === 'all' || 
-                       (seatFilter === 'assigned' && student.seatNumber) ||
-                       (seatFilter === 'unassigned' && !student.seatNumber);
-    
-    const matchesPayment = paymentFilter === 'all' || 
-                          (student.paymentStatus || 'due') === paymentFilter;
-    
-    let matchesExpiry = true;
-    if (expiryFilter !== null) {
-      const now = new Date();
-      const endDate = new Date(student.subscriptionEndDate);
-      const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      matchesExpiry = diffDays <= expiryFilter && diffDays >= 0;
+  const handleNotifyAllExpiring = async () => {
+    try {
+      const result = await apiService.getStudentsPaged({ page: 1, limit: 500, expiryDays: 7 });
+      for (const student of result.students) {
+        await handleSendReminder(student);
+      }
+    } catch (err) {
+      showError('Notify Failed', 'Failed to send expiry reminders');
+      console.error('Error notifying expiring students:', err);
     }
-    
-    return matchesSearch && matchesStatus && matchesSeat && matchesPayment && matchesExpiry;
-  });
+  };
 
   const handleApplyExpiryFilter = () => {
     const days = parseInt(customExpiryDays);
@@ -367,63 +377,87 @@ function Students() {
     expiryFilter !== null ? `${expiryFilter}d` : null
   ].filter(Boolean).length;
 
-  const handleDownloadStudents = () => {
-    const headers = [
-      'Name', "Father's Name", 'Mobile', 'Email', 'Aadhaar Number', 'Address',
-      'Seat', 'Plan Type', 'Day Type', 'Half Day Slot', 'Start Date', 'Subscription End Date',
-      'Currency', 'Cycle Amount', 'Total Paid', 'Balance Due', 'Advance/Credit',
-      'Payment Status', 'Status'
-    ];
+  const handleDownloadStudents = async () => {
+    setDownloading(true);
+    try {
+      // Fetch every student matching the current filters (not just the
+      // current page) so the export is complete.
+      const result = await apiService.getStudentsPaged({
+        page: 1,
+        limit: 100000,
+        search: debouncedSearch,
+        status: statusFilter,
+        seatFilter,
+        paymentStatus: paymentFilter,
+        expiryDays: expiryFilter
+      });
+      const allFiltered = result.students;
 
-    const rows = filteredStudents.map(student => {
-      const info = computeDueInfo(student);
-      return [
-        student.name,
-        student.fatherName || '',
-        student.mobile,
-        student.email,
-        student.aadhaarNumber || '',
-        student.address || '',
-        student.seatNumber ?? '',
-        student.planType,
-        student.dayType,
-        student.halfDaySlot || '',
-        student.startDate ? new Date(student.startDate).toLocaleDateString() : '',
-        student.subscriptionEndDate ? new Date(student.subscriptionEndDate).toLocaleDateString() : '',
-        student.currency,
-        info.cycleAmount.toFixed(2),
-        info.totalPaid.toFixed(2),
-        info.due.toFixed(2),
-        info.advance.toFixed(2),
-        student.paymentStatus || 'due',
-        student.status
+      const headers = [
+        'Name', "Father's Name", 'Mobile', 'Email', 'Aadhaar Number', 'Address',
+        'Seat', 'Plan Type', 'Day Type', 'Half Day Slot', 'Start Date', 'Subscription End Date',
+        'Currency', 'Cycle Amount', 'Total Paid', 'Balance Due', 'Advance/Credit',
+        'Payment Status', 'Status'
       ];
-    });
 
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(escapeCsvValue).join(','))
-      .join('\r\n');
+      const rows = allFiltered.map(student => {
+        const info = computeDueInfo(student);
+        return [
+          student.name,
+          student.fatherName || '',
+          student.mobile,
+          student.email,
+          student.aadhaarNumber || '',
+          student.address || '',
+          student.seatNumber ?? '',
+          student.planType,
+          student.dayType,
+          student.halfDaySlot || '',
+          student.startDate ? new Date(student.startDate).toLocaleDateString() : '',
+          student.subscriptionEndDate ? new Date(student.subscriptionEndDate).toLocaleDateString() : '',
+          student.currency,
+          info.cycleAmount.toFixed(2),
+          info.totalPaid.toFixed(2),
+          info.due.toFixed(2),
+          info.advance.toFixed(2),
+          student.paymentStatus || 'due',
+          student.status
+        ];
+      });
 
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `students-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(escapeCsvValue).join(','))
+        .join('\r\n');
 
-    showSuccess('Download Started', `Exported ${filteredStudents.length} student${filteredStudents.length !== 1 ? 's' : ''} to CSV`);
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `students-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showSuccess('Download Started', `Exported ${allFiltered.length} student${allFiltered.length !== 1 ? 's' : ''} to CSV`);
+    } catch (err) {
+      showError('Download Failed', 'Failed to export students');
+      console.error('Error downloading students:', err);
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  if (loading) {
+  if (loading && students.length === 0) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="text-lg">Loading students...</div>
       </div>
     );
   }
+
+  const rangeStart = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
+  const rangeEnd = Math.min(pagination.page * pagination.limit, pagination.total);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -438,10 +472,10 @@ function Students() {
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Students</h1>
           <p className="text-gray-600 mt-1">Manage student registrations and subscriptions</p>
-          {expiringSoonStudents.length > 0 && (
+          {expiringSoonCount > 0 && (
             <div className="mt-2 flex items-center text-yellow-600">
               <AlertTriangle className="w-4 h-4 mr-1" />
-              <span className="text-sm">{expiringSoonStudents.length} students expiring within 7 days</span>
+              <span className="text-sm">{expiringSoonCount} students expiring within 7 days</span>
             </div>
           )}
         </div>
@@ -610,23 +644,16 @@ function Students() {
           </div>
           
           {/* Action Buttons */}
-          {expiringSoonStudents.length > 0 && (
-            <Button 
-              variant="secondary" 
-              onClick={async () => {
-                for (const student of expiringSoonStudents) {
-                  await handleSendReminder(student);
-                }
-              }}
-            >
+          {expiringSoonCount > 0 && (
+            <Button variant="secondary" onClick={handleNotifyAllExpiring}>
               <MessageCircle className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Notify Expiring ({expiringSoonStudents.length})</span>
-              <span className="sm:hidden">Notify ({expiringSoonStudents.length})</span>
+              <span className="hidden sm:inline">Notify Expiring ({expiringSoonCount})</span>
+              <span className="sm:hidden">Notify ({expiringSoonCount})</span>
             </Button>
           )}
-          <Button variant="secondary" onClick={handleDownloadStudents} disabled={filteredStudents.length === 0}>
+          <Button variant="secondary" onClick={handleDownloadStudents} disabled={downloading || pagination.total === 0}>
             <Download className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Download ({filteredStudents.length})</span>
+            <span className="hidden sm:inline">{downloading ? 'Preparing...' : `Download (${pagination.total})`}</span>
             <span className="sm:hidden">Export</span>
           </Button>
           <Button onClick={() => setShowForm(true)}>
@@ -664,12 +691,15 @@ function Students() {
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-gray-600">
-                  Showing {filteredStudents.length} of {students.length} students
+                  {pagination.total === 0
+                    ? 'No students found'
+                    : `Showing ${rangeStart}-${rangeEnd} of ${pagination.total} students`}
                   {activeFiltersCount > 0 && (
                     <span className="ml-2 px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
                       {activeFiltersCount} filter{activeFiltersCount > 1 ? 's' : ''} active
                     </span>
                   )}
+                  {loading && <span className="ml-2 text-xs text-gray-400">Loading...</span>}
                 </p>
                 {activeFiltersCount > 0 && (
                   <button
@@ -682,14 +712,40 @@ function Students() {
               </div>
             </div>
             <StudentList 
-              students={filteredStudents}
+              students={students}
               onEdit={handleEditStudent}
               onSendReminder={handleSendReminder}
               onDelete={handleDeleteStudent}
               onUpdateBalance={handleUpdateBalance}
               onUpdateStatus={handleUpdateStatus}
               onUpdatePaymentStatus={handleUpdatePaymentStatus}
+              startIndex={(pagination.page - 1) * pagination.limit}
             />
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={pagination.page <= 1}
+                  className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                  disabled={pagination.page >= pagination.totalPages}
+                  className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

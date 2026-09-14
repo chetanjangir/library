@@ -1,5 +1,21 @@
 const API_URL = '/api';
 
+interface StudentsPageParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  seatFilter?: string;
+  paymentStatus?: string;
+  expiryDays?: number | null;
+}
+
+interface StudentsPageResult {
+  students: any[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+  expiringSoonCount: number;
+}
+
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_URL}${endpoint}`;
@@ -70,6 +86,35 @@ class ApiService {
       body: JSON.stringify({ id }),
     });
   }
+
+  async getStudentsPaged(params: StudentsPageParams): Promise<StudentsPageResult> {
+    const fallback: StudentsPageResult = {
+      students: [],
+      pagination: { page: params.page || 1, limit: params.limit || 20, total: 0, totalPages: 1 },
+      expiringSoonCount: 0
+    };
+
+    try {
+      const qs = new URLSearchParams();
+      qs.set('page', String(params.page || 1));
+      qs.set('limit', String(params.limit || 20));
+      if (params.search) qs.set('search', params.search);
+      if (params.status && params.status !== 'all') qs.set('status', params.status);
+      if (params.seatFilter && params.seatFilter !== 'all') qs.set('seatFilter', params.seatFilter);
+      if (params.paymentStatus && params.paymentStatus !== 'all') qs.set('paymentStatus', params.paymentStatus);
+      if (params.expiryDays) qs.set('expiryDays', String(params.expiryDays));
+
+      const result = await this.request(`/students?${qs.toString()}`);
+      if (!result || !Array.isArray(result.students)) {
+        return fallback;
+      }
+      return result;
+    } catch (error) {
+      console.error('Failed to fetch paginated students:', error);
+      return fallback;
+    }
+  }
+
 
   // Payments API
   async getPayments() {

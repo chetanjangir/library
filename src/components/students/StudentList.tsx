@@ -13,9 +13,10 @@ interface StudentListProps {
   onUpdateBalance: (student: Student, amount: number) => void;
   onUpdateStatus: (student: Student, status: 'active' | 'inactive' | 'expired') => Promise<void>;
   onUpdatePaymentStatus: (student: Student, status: 'paid' | 'due' | 'partial') => Promise<void>;
+  startIndex?: number;
 }
 
-function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus, onUpdatePaymentStatus }: StudentListProps) {
+function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus, onUpdatePaymentStatus, startIndex = 0 }: StudentListProps) {
   const [balanceInputs, setBalanceInputs] = React.useState<{[key: string]: string}>({});
   const [photoPreview, setPhotoPreview] = React.useState<{ src: string; name: string; top: number; left: number } | null>(null);
   const { showSuccess, showError } = useToast();
@@ -120,7 +121,7 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
               !student.seatNumber ? 'bg-orange-50 border-l-4 border-orange-400' : ''
             }>
               <td className="px-2 sm:px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {index + 1}
+                {startIndex + index + 1}
               </td>
 
               {/* Student: photo, name, contact, plan/seat (shown here on small screens) */}

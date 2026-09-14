@@ -25,33 +25,22 @@ export default async function handler(req, res) {
     const collection = db.collection('students');
 
     if (req.method === 'GET') {
-      console.log('Fetching students from MongoDB...');
-      const students = await collection.find({}).toArray();
-      console.log(`Found ${students.length} students`);
-      
-      // Update student status based on subscription end date
+      console.log('Fetching students from MongoDB...', req.query);
+
+      // Flip expired/reactivated statuses in bulk instead of looping over every
+      // document in JS - much cheaper, and works the same whether we return
+      // the whole collection or a single page of it.
       const now = new Date();
-      for (const student of students) {
-        const endDate = new Date(student.subscription_end_date);
-        let newStatus = student.status;
-        
-        if (endDate < now) {
-          newStatus = 'expired';
-        } else if (student.status === 'expired' && endDate > now) {
-          newStatus = 'active';
-        }
-        
-        // Update status in database if changed
-        if (newStatus !== student.status) {
-          await collection.updateOne(
-            { _id: student._id },
-            { $set: { status: newStatus, updated_at: new Date() } }
-          );
-          student.status = newStatus;
-        }
-      }
-      
-      const responseStudents = students.map(student => ({
+      await collection.updateMany(
+        { status: { $ne: 'expired' }, subscription_end_date: { $lt: now } },
+        { $set: { status: 'expired', updated_at: now } }
+      );
+      await collection.updateMany(
+        { status: 'expired', subscription_end_date: { $gte: now } },
+        { $set: { status: 'active', updated_at: now } }
+      );
+
+      const mapStudent = (student) => ({
         id: student._id.toString(),
         name: student.name,
         fatherName: student.father_name,
@@ -80,10 +69,79 @@ export default async function handler(req, res) {
         paidAmount: student.paid_amount || student.paidAmount || 0,
         balanceAmount: student.balance_amount || student.balanceAmount || 0,
         _id: undefined
-      }));
-      
-      console.log(`Returning ${responseStudents.length} students with proper date formatting`);
-      return res.status(200).json(responseStudents);
+      });
+
+      const query = req.query || {};
+      const isPaginated = query.page !== undefined || query.limit !== undefined;
+
+      if (!isPaginated) {
+        // Legacy behavior: return the full array. Used by pages that need every
+        // student at once (Dues, Payments) rather than a single page of them.
+        const students = await collection.find({}).sort({ created_at: -1 }).toArray();
+        const responseStudents = students.map(mapStudent);
+        console.log(`Returning all ${responseStudents.length} students (legacy, unpaginated)`);
+        return res.status(200).json(responseStudents);
+      }
+
+      // Paginated + filtered path, used by the Students list page.
+      const page = Math.max(1, parseInt(query.page) || 1);
+      const limit = Math.min(1000, Math.max(1, parseInt(query.limit) || 20));
+      const search = (query.search || '').trim();
+
+      const filter = {};
+      if (search) {
+        const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escaped, 'i');
+        filter.$or = [{ name: regex }, { email: regex }, { mobile: regex }];
+      }
+      if (query.status && query.status !== 'all') {
+        filter.status = query.status;
+      }
+      if (query.seatFilter === 'assigned') {
+        filter.seat_number = { $exists: true, $ne: null };
+      } else if (query.seatFilter === 'unassigned') {
+        filter.$and = (filter.$and || []).concat([
+          { $or: [{ seat_number: { $exists: false } }, { seat_number: null }] }
+        ]);
+      }
+      if (query.paymentStatus && query.paymentStatus !== 'all') {
+        filter.payment_status = query.paymentStatus;
+      }
+      const expiryDays = parseInt(query.expiryDays);
+      if (!isNaN(expiryDays) && expiryDays > 0) {
+        filter.subscription_end_date = {
+          $gte: now,
+          $lte: new Date(now.getTime() + expiryDays * 24 * 60 * 60 * 1000)
+        };
+      }
+
+      const [total, students, expiringSoonCount] = await Promise.all([
+        collection.countDocuments(filter),
+        collection
+          .find(filter)
+          .sort({ created_at: -1, _id: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .toArray(),
+        collection.countDocuments({
+          status: 'active',
+          subscription_end_date: { $gte: now, $lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) }
+        })
+      ]);
+
+      const responseStudents = students.map(mapStudent);
+      console.log(`Returning page ${page} (${responseStudents.length} of ${total} matching students)`);
+
+      return res.status(200).json({
+        students: responseStudents,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit))
+        },
+        expiringSoonCount
+      });
     }
 
     if (req.method === 'POST') {
@@ -390,7 +448,17 @@ function handleFallback(req, res) {
   ];
 
   if (req.method === 'GET') {
-    return res.status(200).json(sampleStudents);
+    const isPaginated = req.query && (req.query.page !== undefined || req.query.limit !== undefined);
+    if (!isPaginated) {
+      return res.status(200).json(sampleStudents);
+    }
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit) || 20));
+    return res.status(200).json({
+      students: sampleStudents,
+      pagination: { page, limit, total: sampleStudents.length, totalPages: 1 },
+      expiringSoonCount: 0
+    });
   }
 
   if (req.method === 'POST') {
