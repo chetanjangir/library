@@ -90,9 +90,15 @@ export default async function handler(req, res) {
 
       const filter = {};
       if (search) {
-        const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const trimmed = search.trim();
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(escaped, 'i');
-        filter.$or = [{ name: regex }, { email: regex }, { mobile: regex }];
+        const orConditions = [{ name: regex }, { email: regex }, { mobile: regex }];
+        // Pure-numeric searches also match an exact seat number (e.g. "12" finds seat 12)
+        if (/^\d+$/.test(trimmed)) {
+          orConditions.push({ seat_number: parseInt(trimmed, 10) });
+        }
+        filter.$or = orConditions;
       }
       if (query.status && query.status !== 'all') {
         filter.status = query.status;
@@ -128,13 +134,18 @@ export default async function handler(req, res) {
         filter.created_at = { $gte: periodStart };
       }
 
+      // Sort by seat number ascending, with unassigned seats (null/missing)
+      // pushed to the end rather than sorting first.
       const [total, students, expiringSoonCount] = await Promise.all([
         collection.countDocuments(filter),
         collection
-          .find(filter)
-          .sort({ seat_number: -1, created_at: -1, _id: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
+          .aggregate([
+            { $match: filter },
+            { $addFields: { sortSeat: { $ifNull: ['$seat_number', 999999] } } },
+            { $sort: { sortSeat: 1, created_at: -1, _id: -1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+          ])
           .toArray(),
         collection.countDocuments({
           status: 'active',
