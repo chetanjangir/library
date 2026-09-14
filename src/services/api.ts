@@ -32,6 +32,32 @@ interface PaymentsPageResult {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
+interface LedgerPageParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+interface LedgerEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  seatNumber?: number | null;
+  currency: string;
+  date: string;
+  amount: number;
+  type: 'payment' | 'advance';
+  note?: string | null;
+}
+
+interface LedgerPageResult {
+  entries: LedgerEntry[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_URL}${endpoint}`;
@@ -140,6 +166,32 @@ class ApiService {
     } catch (error) {
       console.error('Failed to fetch payments:', error);
       return [];
+    }
+  }
+
+  async getLedgerPaged(params: LedgerPageParams): Promise<LedgerPageResult> {
+    const fallback: LedgerPageResult = {
+      entries: [],
+      pagination: { page: params.page || 1, limit: params.limit || 20, total: 0, totalPages: 1 }
+    };
+
+    try {
+      const qs = new URLSearchParams();
+      qs.set('page', String(params.page || 1));
+      qs.set('limit', String(params.limit || 20));
+      if (params.search) qs.set('search', params.search);
+      if (params.type && params.type !== 'all') qs.set('type', params.type);
+      if (params.dateFrom) qs.set('dateFrom', params.dateFrom);
+      if (params.dateTo) qs.set('dateTo', params.dateTo);
+
+      const result = await this.request(`/ledger?${qs.toString()}`);
+      if (!result || !Array.isArray(result.entries)) {
+        return fallback;
+      }
+      return result;
+    } catch (error) {
+      console.error('Failed to fetch paginated payment ledger:', error);
+      return fallback;
     }
   }
 
