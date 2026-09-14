@@ -17,7 +17,19 @@ interface StudentListProps {
 
 function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalance, onUpdateStatus, onUpdatePaymentStatus }: StudentListProps) {
   const [balanceInputs, setBalanceInputs] = React.useState<{[key: string]: string}>({});
+  const [photoPreview, setPhotoPreview] = React.useState<{ src: string; name: string; top: number; left: number } | null>(null);
   const { showSuccess, showError } = useToast();
+
+  const showPhotoPreview = (e: React.MouseEvent<HTMLElement>, src: string | undefined, name: string) => {
+    if (!src) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const previewSize = 260;
+    const left = Math.min(rect.right + 16, window.innerWidth - previewSize - 16);
+    const top = Math.min(Math.max(rect.top - previewSize / 2 + rect.height / 2, 16), window.innerHeight - previewSize - 16);
+    setPhotoPreview({ src, name, top, left });
+  };
+
+  const hidePhotoPreview = () => setPhotoPreview(null);
 
   const getCurrencySymbol = (currency: string) => {
     const symbols = { USD: '$', EUR: '€', INR: '₹', GBP: '£' };
@@ -114,18 +126,20 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
               </td>
               <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                 <div className="flex items-start space-x-3">
-                  <div className="relative group flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
-                      {student.photo ? (
-                        <img
-                          src={student.photo}
-                          alt={student.name}
-                          className="w-full h-full object-cover transform transition-transform duration-200 ease-out group-hover:scale-[3] group-hover:relative group-hover:z-50 group-hover:shadow-xl group-hover:rounded-md"
-                        />
-                      ) : (
-                        <User className="w-5 h-5 text-gray-400" />
-                      )}
-                    </div>
+                  <div
+                    className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0"
+                    onMouseEnter={(e) => showPhotoPreview(e, student.photo, student.name)}
+                    onMouseLeave={hidePhotoPreview}
+                  >
+                    {student.photo ? (
+                      <img
+                        src={student.photo}
+                        alt={student.name}
+                        className="w-full h-full object-cover cursor-pointer"
+                      />
+                    ) : (
+                      <User className="w-5 h-5 text-gray-400" />
+                    )}
                   </div>
                   <div>
                     <div className="text-sm font-medium text-gray-900 truncate max-w-32 sm:max-w-none">{student.name}</div>
@@ -303,6 +317,20 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
           ))}
         </tbody>
       </table>
+
+      {photoPreview && (
+        <div
+          className="fixed z-50 pointer-events-none bg-white p-1.5 rounded-lg shadow-2xl border border-gray-200"
+          style={{ top: photoPreview.top, left: photoPreview.left }}
+        >
+          <img
+            src={photoPreview.src}
+            alt={photoPreview.name}
+            className="w-56 h-56 object-cover rounded-md"
+          />
+          <p className="text-xs text-center text-gray-600 mt-1 font-medium truncate max-w-[14rem]">{photoPreview.name}</p>
+        </div>
+      )}
     </div>
   );
 }
