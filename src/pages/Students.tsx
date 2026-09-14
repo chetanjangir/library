@@ -33,6 +33,7 @@ function Students() {
   const [seatFilter, setSeatFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'due' | 'partial'>('all');
   const [expiryFilter, setExpiryFilter] = useState<number | null>(null);
+  const [addedFilter, setAddedFilter] = useState<'all' | 'week' | 'month'>('all');
   const [showExpiryInput, setShowExpiryInput] = useState(false);
   const [customExpiryDays, setCustomExpiryDays] = useState<string>('');
   const [page, setPage] = useState(1);
@@ -46,7 +47,7 @@ function Students() {
     return () => clearTimeout(t);
   }, [searchTerm]);
 
-  const filterKey = JSON.stringify({ debouncedSearch, statusFilter, seatFilter, paymentFilter, expiryFilter });
+  const filterKey = JSON.stringify({ debouncedSearch, statusFilter, seatFilter, paymentFilter, expiryFilter, addedFilter });
   const prevFilterKey = useRef(filterKey);
 
   // Load the current page whenever the page number or any filter changes.
@@ -90,7 +91,8 @@ function Students() {
         status: statusFilter,
         seatFilter,
         paymentStatus: paymentFilter,
-        expiryDays: expiryFilter
+        expiryDays: expiryFilter,
+        addedWithin: addedFilter
       });
       setStudents(result.students);
       setPagination(result.pagination);
@@ -367,6 +369,7 @@ function Students() {
     setExpiryFilter(null);
     setCustomExpiryDays('');
     setShowExpiryInput(false);
+    setAddedFilter('all');
   };
 
   const activeFiltersCount = [
@@ -374,7 +377,8 @@ function Students() {
     statusFilter !== 'all' ? statusFilter : null,
     seatFilter !== 'all' ? seatFilter : null,
     paymentFilter !== 'all' ? paymentFilter : null,
-    expiryFilter !== null ? `${expiryFilter}d` : null
+    expiryFilter !== null ? `${expiryFilter}d` : null,
+    addedFilter !== 'all' ? addedFilter : null
   ].filter(Boolean).length;
 
   const handleDownloadStudents = async () => {
@@ -389,7 +393,8 @@ function Students() {
         status: statusFilter,
         seatFilter,
         paymentStatus: paymentFilter,
-        expiryDays: expiryFilter
+        expiryDays: expiryFilter,
+        addedWithin: addedFilter
       });
       const allFiltered = result.students;
 
@@ -509,7 +514,7 @@ function Students() {
             </div>
             
             {/* Filter Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               {/* Status Filter */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</label>
@@ -536,6 +541,20 @@ function Students() {
                   <option value="all">All Seats</option>
                   <option value="assigned">Assigned</option>
                   <option value="unassigned">Unassigned</option>
+                </select>
+              </div>
+
+              {/* Recently Added Filter */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Added</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  value={addedFilter}
+                  onChange={(e) => setAddedFilter(e.target.value as typeof addedFilter)}
+                >
+                  <option value="all">Any Time</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
                 </select>
               </div>
               

@@ -115,11 +115,24 @@ export default async function handler(req, res) {
         };
       }
 
+      // "Recently added" filter: this calendar week (Mon-based) or this calendar month
+      if (query.addedWithin === 'week' || query.addedWithin === 'month') {
+        let periodStart;
+        if (query.addedWithin === 'week') {
+          const day = now.getDay(); // 0 (Sun) - 6 (Sat)
+          const diffToMonday = day === 0 ? 6 : day - 1;
+          periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+        } else {
+          periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+        filter.created_at = { $gte: periodStart };
+      }
+
       const [total, students, expiringSoonCount] = await Promise.all([
         collection.countDocuments(filter),
         collection
           .find(filter)
-          .sort({ created_at: -1, _id: -1 })
+          .sort({ seat_number: -1, created_at: -1, _id: -1 })
           .skip((page - 1) * limit)
           .limit(limit)
           .toArray(),

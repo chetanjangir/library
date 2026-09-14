@@ -8,6 +8,7 @@ interface StudentsPageParams {
   seatFilter?: string;
   paymentStatus?: string;
   expiryDays?: number | null;
+  addedWithin?: string;
 }
 
 interface StudentsPageResult {
@@ -103,6 +104,7 @@ class ApiService {
       if (params.seatFilter && params.seatFilter !== 'all') qs.set('seatFilter', params.seatFilter);
       if (params.paymentStatus && params.paymentStatus !== 'all') qs.set('paymentStatus', params.paymentStatus);
       if (params.expiryDays) qs.set('expiryDays', String(params.expiryDays));
+      if (params.addedWithin && params.addedWithin !== 'all') qs.set('addedWithin', params.addedWithin);
 
       const result = await this.request(`/students?${qs.toString()}`);
       if (!result || !Array.isArray(result.students)) {

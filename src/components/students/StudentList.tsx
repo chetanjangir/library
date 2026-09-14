@@ -50,17 +50,9 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
     return end < now;
   };
 
-  // Sort students with the most recently added first. Falls back to comparing
-  // Mongo ObjectIds (which are chronologically sortable as strings) for any
-  // legacy records that don't have a createdAt timestamp.
-  const sortedStudents = [...students].sort((a, b) => {
-    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : NaN;
-    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : NaN;
-    if (!isNaN(aTime) && !isNaN(bTime)) return bTime - aTime;
-    if (!isNaN(aTime)) return -1;
-    if (!isNaN(bTime)) return 1;
-    return String(b.id).localeCompare(String(a.id));
-  });
+  // Ordering (seat number descending by default, or whichever sort/filters are
+  // active) is applied server-side, so we render students in the order given.
+  const sortedStudents = students;
 
   const getPaymentStatusColor = (paymentStatus: string) => {
     switch (paymentStatus) {
