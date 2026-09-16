@@ -152,6 +152,24 @@ function StudentList({ students, onEdit, onSendReminder, onDelete, onUpdateBalan
                     <div className="text-xs text-gray-900 lg:hidden mt-0.5">
                       {student.seatNumber ? `Seat ${student.seatNumber}` : 'No seat'} · <span className="capitalize">{student.planType}</span> <span className="capitalize">({student.dayType})</span>
                     </div>
+                    {/* Status control - shown here on small/medium screens, where the
+                        dedicated Expiry/Status column below is hidden */}
+                    <div className="md:hidden mt-1">
+                      <select
+                        className={`px-2 py-1 text-xs font-semibold rounded border-0 cursor-pointer ${
+                          student.status === 'active' ? 'bg-green-100 text-green-800' :
+                          student.status === 'expired' ? 'bg-red-100 text-red-800' :
+                          student.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}
+                        value={student.status}
+                        onChange={(e) => handleStatusUpdate(student, e.target.value)}
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="expired">Expired</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </td>

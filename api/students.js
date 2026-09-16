@@ -31,8 +31,13 @@ export default async function handler(req, res) {
       // document in JS - much cheaper, and works the same whether we return
       // the whole collection or a single page of it.
       const now = new Date();
+      // Only auto-toggle between 'active' and 'expired' based on the
+      // subscription end date. A student manually set to 'inactive' is left
+      // alone - otherwise this sync would immediately flip it back to
+      // 'expired'/'active' on the very next page load, making the status
+      // dropdown look broken.
       await collection.updateMany(
-        { status: { $ne: 'expired' }, subscription_end_date: { $lt: now } },
+        { status: 'active', subscription_end_date: { $lt: now } },
         { $set: { status: 'expired', updated_at: now } }
       );
       await collection.updateMany(
