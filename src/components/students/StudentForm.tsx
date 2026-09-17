@@ -138,9 +138,17 @@ function StudentForm({ onSubmit, onCancel, editingStudent, prefilledSeatNumber }
     }
   };
 
-  // Half day and full day amounts, kept in sync with the monthly amount
-  const halfDayAmount = formData.monthlyAmount * 0.6;
-  const fullDayAmount = formData.monthlyAmount;
+  // "Monthly Amount" always holds the fee for whichever day type is
+  // currently selected (it's pre-filled from Settings' half/full day fee
+  // above). Only the matching field should use it directly - deriving the
+  // other one via a flat 60% multiplier was the bug that under-priced half
+  // day dues (e.g. a ₹400 half-day fee was stored as ₹240).
+  const halfDayAmount = formData.dayType === 'half'
+    ? formData.monthlyAmount
+    : (settings?.fees?.halfDayFee || formData.monthlyAmount * 0.6);
+  const fullDayAmount = formData.dayType === 'full'
+    ? formData.monthlyAmount
+    : (settings?.fees?.fullDayFee || formData.monthlyAmount);
 
   // Month-wise dues, computed live from the payment ledger
   const parsedCustomMonthlyAmount = customPlanEnabled ? (parseFloat(customMonthlyAmount) || 0) : undefined;
